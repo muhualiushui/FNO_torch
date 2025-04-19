@@ -9,7 +9,7 @@ To set up your environment to use the Fourier Neural Operator, follow these step
 1. Install the necessary packages using pip or conda:
    ```bash
    pip install -r requirements.txt
-   pip install torch torchvision  # installs the latest PyTorch and torchvision
+   conda install -r requirements.txt
    ```
 
 > ### Notice for GPU Users
