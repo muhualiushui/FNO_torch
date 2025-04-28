@@ -89,8 +89,7 @@ class FNO1d(nn.Module):
             # -- train --
             self.train()
             running = 0.0
-            for batch in tqdm(train_loader, desc=f"Epoch {epoch} Train", leave=False, unit="batch"):
-                xb, yb = batch[x_name], batch[y_name]
+            for xb, yb in tqdm(train_loader, desc=f"Epoch {epoch} Train", leave=False, unit="batch", position=0):
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
                 loss = F.mse_loss(self(xb), yb)
@@ -103,8 +102,7 @@ class FNO1d(nn.Module):
             self.eval()
             val_running = 0.0
             with torch.no_grad():
-                for batch in tqdm(test_loader, desc=f"Epoch {epoch} Val", leave=False, unit="batch"):
-                    xb, yb = batch[x_name], batch[y_name]
+                for xb, yb in tqdm(test_loader, desc=f"Epoch {epoch} Val", leave=False, unit="batch", position=0):
                     xb, yb = xb.to(device), yb.to(device)
                     val_running += F.mse_loss(self(xb), yb).item() * xb.size(0)
             history['val_loss'].append(val_running / len(test_loader.dataset))
@@ -201,7 +199,7 @@ class FNO2d(nn.Module):
         for epoch in pbar:
             self.train()
             running = []
-            for batch in tqdm(train_loader, desc=f"Epoch {epoch} Train", leave=False, unit="batch"):
+            for batch in tqdm(train_loader, desc=f"Epoch {epoch} Train", leave=False, unit="batch", position=0):
                 xb, yb = batch[x_name], batch[y_name]
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
@@ -214,7 +212,7 @@ class FNO2d(nn.Module):
             self.eval()
             val_running = []
             with torch.no_grad():
-                for batch in tqdm(test_loader, desc=f"Epoch {epoch} Val", leave=False, unit="batch"):
+                for batch in tqdm(test_loader, desc=f"Epoch {epoch} Val", leave=False, unit="batch", position=0):
                     xb, yb = batch[x_name], batch[y_name]
                     xb, yb = xb.to(device), yb.to(device)
                     loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
