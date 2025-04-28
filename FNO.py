@@ -147,7 +147,7 @@ class FNOBlock2d(nn.Module):
 class FNO2d(nn.Module):
     def __init__(self, in_c: int, out_c: int, modes1: int,
                  modes2: int, width: int, activation: Callable,
-                 n_blocks: int = 4):
+                 n_blocks: int = 4, classification: bool = False):
         super().__init__()
         self.lift = nn.Conv2d(in_c, width, kernel_size=1)
         self.blocks = nn.ModuleList([
@@ -156,20 +156,26 @@ class FNO2d(nn.Module):
         ])
         self.proj = nn.Conv2d(width, out_c, kernel_size=1)
 
+        self.loss_fn = F.mse_loss(reduction='none') if not classification else F.cross_entropy(reduction='none')
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lift(x)
         for blk in self.blocks:
             x = blk(x)
         return self.proj(x)
 
+
     def train_model(self,
                     train_loader: DataLoader,
                     test_loader: DataLoader,
                     optimizer: Optimizer,
                     epochs: int,
-                    device: torch.device):
+                    device: torch.device,
+                    classification: bool = False,
+                    n_classes: int = 1):
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
+        loss = self.loss_fn
 
         for epoch in tqdm(range(epochs)):
             self.train()
@@ -177,7 +183,6 @@ class FNO2d(nn.Module):
             for xb, yb in train_loader:
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
-                loss = F.mse_loss(self(xb), yb)
                 loss.backward()
                 optimizer.step()
                 running += loss.item() * xb.size(0)
@@ -188,7 +193,25 @@ class FNO2d(nn.Module):
             with torch.no_grad():
                 for xb, yb in test_loader:
                     xb, yb = xb.to(device), yb.to(device)
-                    val_running += F.mse_loss(self(xb), yb).item() * xb.size(0)
+
+                    val_running += loss(self(xb), yb).item() * xb.size(0)
             history['val_loss'].append(val_running / len(test_loader.dataset))
 
         return history
+    
+    def plot_loss(self, history: dict, save_path: str = None):
+        """
+        Plot the training and validation loss.
+        """
+        plt.figure(figsize=(10, 5))
+        plt.plot(history['train_loss'], label='Train Loss')
+        plt.plot(history['val_loss'], label='Validation Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Training and Validation Loss')
+        plt.legend()
+        if save_path:
+            plt.savefig(save_path)
+        else:
+            plt.show()
+        plt.close()
