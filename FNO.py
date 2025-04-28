@@ -177,12 +177,12 @@ class FNO2d(nn.Module):
             self.loss_fn = lambda pred, y: (
                 F.binary_cross_entropy_with_logits(pred, y.float(), reduction='none')
                  # pred & y are (B, C, H, W) → BCE w/o reduction gives (B, C, H, W)
-                 .mean(dim=(2, 3))            # collapse H,W → (B, C)
+                 .sum(dim=(2, 3))            # collapse H,W → (B, C)
             )
         else:
             self.loss_fn = lambda pred, y: (
                 F.mse_loss(pred, y, reduction='none')
-                 .mean(dim=(2, 3))
+                 .sum(dim=(2, 3))
             )
 
 
@@ -210,7 +210,7 @@ class FNO2d(nn.Module):
         epochs_no_improve = 0
         patience = 5
 
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', position=0)
         for epoch in pbar:
             self.train()
             running = []
@@ -233,7 +233,10 @@ class FNO2d(nn.Module):
                     loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
                     val_running.append(loss.item())
             history['val_loss'].append(sum(val_running) / len(val_running))
-            pbar.set_postfix(train_loss=history['train_loss'][-1], val_loss=history['val_loss'][-1])
+            pbar.set_postfix(train_loss=history['train_loss'][-1],
+                             val_loss=history['val_loss'][-1],
+                             refresh=True)
+
             current_val = history['val_loss'][-1]
             if current_val < best_val_loss:
                 best_val_loss = current_val
