@@ -188,10 +188,11 @@ class FNO2d(nn.Module):
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
 
-        for epoch in tqdm(range(epochs)):
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
+        for epoch in pbar:
             self.train()
             running = []
-            for xb, yb in train_loader:
+            for xb, yb in tqdm(train_loader, desc=f"Epoch {epoch} Train", leave=False, unit="batch"):
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
                 loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
@@ -203,11 +204,12 @@ class FNO2d(nn.Module):
             self.eval()
             val_running = []
             with torch.no_grad():
-                for xb, yb in test_loader:
+                for xb, yb in tqdm(test_loader, desc=f"Epoch {epoch} Val", leave=False, unit="batch"):
                     xb, yb = xb.to(device), yb.to(device)
                     loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
                     val_running.append(loss.item())
             history['val_loss'].append(sum(val_running) / len(val_running))
+            pbar.set_postfix(train_loss=history['train_loss'][-1], val_loss=history['val_loss'][-1])
 
         return history
     
