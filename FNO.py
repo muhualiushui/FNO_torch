@@ -156,7 +156,21 @@ class FNO2d(nn.Module):
         ])
         self.proj = nn.Conv2d(width, out_c, kernel_size=1)
 
-        self.loss_fn = F.mse_loss(reduction='none') if not classification else F.cross_entropy(reduction='none')
+        if classification:
+            # multi-label: 4 independent binary masks
+            self.loss_fn = lambda pred, y: (
+                F.binary_cross_entropy_with_logits(pred, y.float(), reduction='none')
+                 # pred & y are (B, C, H, W) → BCE w/o reduction gives (B, C, H, W)
+                 .mean(dim=(2, 3))            # collapse H,W → (B, C)
+            )
+        else:
+            self.loss_fn = lambda pred, y: (
+                F.mse_loss(pred, y, reduction='none')
+                 .mean(dim=(2, 3))
+            )
+
+
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lift(x)
@@ -170,32 +184,30 @@ class FNO2d(nn.Module):
                     test_loader: DataLoader,
                     optimizer: Optimizer,
                     epochs: int,
-                    device: torch.device,
-                    classification: bool = False,
-                    n_classes: int = 1):
+                    device: torch.device):
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        loss = self.loss_fn
 
         for epoch in tqdm(range(epochs)):
             self.train()
-            running = 0.0
+            running = []
             for xb, yb in train_loader:
                 xb, yb = xb.to(device), yb.to(device)
                 optimizer.zero_grad()
+                loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
                 loss.backward()
                 optimizer.step()
-                running += loss.item() * xb.size(0)
-            history['train_loss'].append(running / len(train_loader.dataset))
+                running.append(loss.item())
+            history['train_loss'].append(sum(running) / len(running))
 
             self.eval()
-            val_running = 0.0
+            val_running = []
             with torch.no_grad():
                 for xb, yb in test_loader:
                     xb, yb = xb.to(device), yb.to(device)
-
-                    val_running += loss(self(xb), yb).item() * xb.size(0)
-            history['val_loss'].append(val_running / len(test_loader.dataset))
+                    loss = self.loss_fn(self(xb), yb).sum(dim =1).mean()
+                    val_running.append(loss.item())
+            history['val_loss'].append(sum(val_running) / len(val_running))
 
         return history
     
