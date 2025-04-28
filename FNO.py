@@ -84,6 +84,9 @@ class FNO1d(nn.Module):
                     ):
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        patience = 5
         pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
         for epoch in pbar:
             # -- train --
@@ -107,6 +110,15 @@ class FNO1d(nn.Module):
                     val_running += F.mse_loss(self(xb), yb).item() * xb.size(0)
             history['val_loss'].append(val_running / len(test_loader.dataset))
             pbar.set_postfix(train_loss=history['train_loss'][-1], val_loss=history['val_loss'][-1])
+            current_val = history['val_loss'][-1]
+            if current_val < best_val_loss:
+                best_val_loss = current_val
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                pbar.write(f"Early stopping at epoch {epoch}: no improvement in {patience} epochs.")
+                break
 
         return history
 
@@ -194,6 +206,9 @@ class FNO2d(nn.Module):
                     ):
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        patience = 5
 
         pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
         for epoch in pbar:
@@ -219,6 +234,15 @@ class FNO2d(nn.Module):
                     val_running.append(loss.item())
             history['val_loss'].append(sum(val_running) / len(val_running))
             pbar.set_postfix(train_loss=history['train_loss'][-1], val_loss=history['val_loss'][-1])
+            current_val = history['val_loss'][-1]
+            if current_val < best_val_loss:
+                best_val_loss = current_val
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                pbar.write(f"Early stopping at epoch {epoch}: no improvement in {patience} epochs.")
+                break
 
         return history
     
