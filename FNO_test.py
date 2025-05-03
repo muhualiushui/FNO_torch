@@ -159,13 +159,17 @@ class FNOnd(nn.Module):
         x = x + skip
         return self.proj(x)
 
-    def train(self,
-              train_loader: DataLoader,
-              optimizer: Optimizer,
-              device: torch.device,
-              *,
-              x_name: str | None = None,
-              y_name: str | None = None) -> float:
+    # keep the standard nn.Module.train(mode=True) behaviour
+    def train(self, mode: bool = True):
+        return super().train(mode)
+
+    def train_epoch(self,
+                    train_loader: DataLoader,
+                    optimizer: Optimizer,
+                    device: torch.device,
+                    *,
+                    x_name: str | None = None,
+                    y_name: str | None = None) -> float:
         """
         Run one training epoch and return average loss.
         """
@@ -192,12 +196,12 @@ class FNOnd(nn.Module):
             total += xb.size(0)
         return running / total
 
-    def valid(self,
-              test_loader: DataLoader,
-              device: torch.device,
-              *,
-              x_name: str | None = None,
-              y_name: str | None = None) -> float:
+    def valid_epoch(self,
+                    test_loader: DataLoader,
+                    device: torch.device,
+                    *,
+                    x_name: str | None = None,
+                    y_name: str | None = None) -> float:
         """
         Run one validation epoch and return average loss.
         """
@@ -237,9 +241,9 @@ class FNOnd(nn.Module):
         history = {'train_loss': [], 'val_loss': []}
         pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
         for epoch in pbar:
-            train_loss = self.train(train_loader, optimizer, device,
+            train_loss = self.train_epoch(train_loader, optimizer, device,
                                     x_name=x_name, y_name=y_name)
-            val_loss   = self.valid(test_loader, device,
+            val_loss   = self.valid_epoch(test_loader, device,
                                     x_name=x_name, y_name=y_name)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
