@@ -162,7 +162,10 @@ class FNOnd(nn.Module):
     def train(self,
               train_loader: DataLoader,
               optimizer: Optimizer,
-              device: torch.device) -> float:
+              device: torch.device,
+              *,
+              x_name: str | None = None,
+              y_name: str | None = None) -> float:
         """
         Run one training epoch and return average loss.
         """
@@ -170,8 +173,17 @@ class FNOnd(nn.Module):
         running = 0.0
         total = 0
         for batch in train_loader:
-            xb = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch
-            yb = batch[1].to(device) if isinstance(batch, (list, tuple)) else batch
+            # Support both tuple/list batches and dict batches keyed by x_name/y_name
+            if isinstance(batch, dict):
+                if x_name is None or y_name is None:
+                    raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
+                xb = batch[x_name].to(device)
+                yb = batch[y_name].to(device)
+            elif isinstance(batch, (list, tuple)):
+                xb = batch[0].to(device)
+                yb = batch[1].to(device)
+            else:
+                raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
             loss = h1_loss(self(xb), yb)
             loss.backward()
@@ -182,7 +194,10 @@ class FNOnd(nn.Module):
 
     def valid(self,
               test_loader: DataLoader,
-              device: torch.device) -> float:
+              device: torch.device,
+              *,
+              x_name: str | None = None,
+              y_name: str | None = None) -> float:
         """
         Run one validation epoch and return average loss.
         """
@@ -191,8 +206,17 @@ class FNOnd(nn.Module):
         total = 0
         with torch.no_grad():
             for batch in test_loader:
-                xb = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch
-                yb = batch[1].to(device) if isinstance(batch, (list, tuple)) else batch
+                # Support both tuple/list batches and dict batches keyed by x_name/y_name
+                if isinstance(batch, dict):
+                    if x_name is None or y_name is None:
+                        raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
+                    xb = batch[x_name].to(device)
+                    yb = batch[y_name].to(device)
+                elif isinstance(batch, (list, tuple)):
+                    xb = batch[0].to(device)
+                    yb = batch[1].to(device)
+                else:
+                    raise TypeError(f"Unsupported batch type: {type(batch)}")
                 loss = h1_loss(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
@@ -203,7 +227,9 @@ class FNOnd(nn.Module):
                     test_loader: DataLoader,
                     optimizer: Optimizer,
                     epochs: int,
-                    device: torch.device,):
+                    device: torch.device,
+                    x_name: str = None,
+                    y_name: str = None):
         """
         Train the model with separate train() and valid() steps, plus early stopping.
         """
@@ -211,8 +237,10 @@ class FNOnd(nn.Module):
         history = {'train_loss': [], 'val_loss': []}
         pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
         for epoch in pbar:
-            train_loss = self.train(train_loader, optimizer, device)
-            val_loss   = self.valid(test_loader, device)
+            train_loss = self.train(train_loader, optimizer, device,
+                                    x_name=x_name, y_name=y_name)
+            val_loss   = self.valid(test_loader, device,
+                                    x_name=x_name, y_name=y_name)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
             pbar.set_postfix(train_loss=train_loss, val_loss=val_loss)
