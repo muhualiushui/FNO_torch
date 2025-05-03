@@ -78,10 +78,10 @@ class FNOBlockNd(nn.Module):
         slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
         x_fft = x_fft[tuple(slices)]
         # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('a') + i) for i in range(self.ndim)]
-        sub_in  = 'b i ' + ' '.join(letters)
-        sub_w   = 'i o ' + ' '.join(letters)
-        sub_out = 'b o ' + ' '.join(letters)
+        letters = [chr(ord('k') + i) for i in range(self.ndim)]
+        sub_in  = 'bi' + ''.join(letters)
+        sub_w   = 'io' + ''.join(letters)
+        sub_out = 'bo' + ''.join(letters)
         eq = f"{sub_in}, {sub_w} -> {sub_out}"
         out_fft = torch.einsum(eq, x_fft, self.weight)
         # inverse FFT
