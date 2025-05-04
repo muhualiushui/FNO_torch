@@ -1,4 +1,3 @@
-# ... existing imports and get_dataloader, loss_fn ...
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -179,7 +178,7 @@ class FNOnd(nn.Module):
                     yb = batch[1].to(device)
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
-                loss = self.loss_fn(self(xb), yb)
+                loss = self.loss_fnV2(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
         return val_running / total
