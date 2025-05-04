@@ -6,7 +6,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 
@@ -94,7 +94,6 @@ class FNOnd(nn.Module):
         return super().train(mode)
 
     def train_epoch(self,
-                    epoch_str: str,
                     train_loader: DataLoader,
                     optimizer: Optimizer,
                     device: torch.device,
@@ -107,10 +106,7 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader,
-                    desc=f'{epoch_str} Train',
-                    position=0, leave=False, dynamic_ncols=False,
-                    bar_format='{desc} {bar} {n_fmt}/{total_fmt}')
+        pbar = tqdm(train_loader, desc='Train', position=1, leave=False, dynamic_ncols=False)
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -132,7 +128,6 @@ class FNOnd(nn.Module):
         return running / total
 
     def valid_epoch(self,
-                    epoch_str: str,
                     test_loader: DataLoader,
                     device: torch.device,
                     *,
@@ -145,10 +140,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader,
-                        desc=f'{epoch_str} Valid',
-                        position=0, leave=False, dynamic_ncols=False,
-                        bar_format='{desc} {bar} {n_fmt}/{total_fmt}')
+            pbar = tqdm(test_loader, desc='Valid', position=1, leave=False, dynamic_ncols=False)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -179,23 +171,15 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        for epoch in range(1, epochs + 1):
-            epoch_str = f'epoch {epoch}/{epochs}:'
-
-            train_loss = self.train_epoch(
-                epoch_str,
-                train_loader, optimizer, device,
-                x_name=x_name, y_name=y_name)
-
-            val_loss = self.valid_epoch(
-                epoch_str,
-                test_loader, device,
-                x_name=x_name, y_name=y_name)
-
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, dynamic_ncols=False, position=0)
+        for epoch in pbar:
+            train_loss = self.train_epoch(train_loader, optimizer, device,
+                                    x_name=x_name, y_name=y_name)
+            val_loss   = self.valid_epoch(test_loader, device,
+                                    x_name=x_name, y_name=y_name)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
-            print(f'{epoch_str} train_loss={train_loss:.4f} '
-                  f'val_loss={val_loss:.4f}', flush=True)
+            pbar.set_postfix(train_loss=train_loss, val_loss=val_loss)
         return history
 
     def plot_loss(self, history: dict, save_path: str = None):
