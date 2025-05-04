@@ -142,7 +142,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', leave=False, dynamic_ncols=False, position=2)
+            pbar = tqdm(test_loader, desc='Valid', leave=False, dynamic_ncols=False, position=1)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -175,7 +175,7 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch')
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
                                     x_name=x_name, y_name=y_name)
