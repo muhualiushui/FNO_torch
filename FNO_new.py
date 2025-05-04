@@ -125,6 +125,7 @@ class FNOnd(nn.Module):
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
+        pbar.clear()  # Clear the progress bar display
         pbar.close()  # Close the progress bar to avoid leftover lines
         return running / total
 
@@ -141,7 +142,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=2)
+            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=1)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -157,6 +158,7 @@ class FNOnd(nn.Module):
                 loss = self.loss_fn(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
+        pbar.clear()  # Clear the progress bar display
         pbar.close()  # Close the progress bar to avoid leftover lines
         return val_running / total
 
