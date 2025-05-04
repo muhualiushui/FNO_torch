@@ -121,11 +121,12 @@ class FNOnd(nn.Module):
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
             loss = self.loss_fn(self(xb), yb)
-            pbar.set_postfix(loss=loss.item())
             loss.backward()
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
+        # Close the progress bar to avoid leftover lines
+        pbar.close()
         return running / total
 
     def valid_epoch(self,
@@ -155,9 +156,10 @@ class FNOnd(nn.Module):
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
                 loss = self.loss_fn(self(xb), yb)
-                pbar.set_postfix(val_loss=loss.item())
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
+        # Close the progress bar to avoid leftover lines
+        pbar.close()
         return val_running / total
 
     def train_model(self,
