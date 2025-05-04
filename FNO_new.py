@@ -106,7 +106,10 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader, desc='Train', position=0, leave=False, dynamic_ncols=False)
+        pbar = tqdm(train_loader,
+                    desc='Train',
+                    position=0, leave=False, dynamic_ncols=False,
+                    bar_format='{desc:<5} {bar} {n_fmt}/{total_fmt}')
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -140,7 +143,10 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', position=0, leave=False, dynamic_ncols=False)
+            pbar = tqdm(test_loader,
+                        desc='Valid',
+                        position=0, leave=False, dynamic_ncols=False,
+                        bar_format='{desc:<5} {bar} {n_fmt}/{total_fmt}')
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -171,7 +177,9 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, dynamic_ncols=False, position=0)
+        pbar = tqdm(range(1, epochs + 1),
+                    bar_format='epoch {n_fmt}/{total_fmt}: {postfix}',
+                    leave=True, dynamic_ncols=False, position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
                                     x_name=x_name, y_name=y_name)
@@ -179,7 +187,8 @@ class FNOnd(nn.Module):
                                     x_name=x_name, y_name=y_name)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
-            pbar.set_postfix(train_loss=train_loss, val_loss=val_loss)
+            pbar.set_postfix_str(f"train_loss={train_loss:.4f} "
+                                 f"val_loss={val_loss:.4f}")
         return history
 
     def plot_loss(self, history: dict, save_path: str = None):
