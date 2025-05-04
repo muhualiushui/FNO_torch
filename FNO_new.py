@@ -125,7 +125,7 @@ class FNOnd(nn.Module):
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
-        # Close the progress bar to avoid leftover lines
+        pbar.close()  # Close the progress bar to avoid leftover lines
         return running / total
 
     def valid_epoch(self,
@@ -157,7 +157,7 @@ class FNOnd(nn.Module):
                 loss = self.loss_fn(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
-        # Close the progress bar to avoid leftover lines
+        pbar.close()  # Close the progress bar to avoid leftover lines
         return val_running / total
 
     def train_model(self,
