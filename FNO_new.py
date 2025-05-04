@@ -67,23 +67,27 @@ class FNOnd(nn.Module):
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
-        self.blocks = nn.ModuleList([
-            FNOBlockNd(width, width, modes, activation)
-            for _ in range(n_blocks)
+        self.assemblies = nn.ModuleList([
+            nn.ModuleList([
+                FNOBlockNd(width, width, modes, activation)
+                for _ in range(n_blocks)
+            ])
+            for _ in range(out_c)
         ])
-        self.proj = ConvNd(width, in_c, kernel_size=1)
+        self.proj = ConvNd(width, 1, kernel_size=1)
         self.loss_fn = nn.BCEWithLogitsLoss()
-
         self.out_c = out_c
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.lift(x)
-        output =[]
-        for blk in self.blocks:
-            for _ in range(self.out_c):
-                x = blk(x)
-            output.append(self.proj(x))
-        return torch.cat(output, dim=1)
+        x0 = self.lift(x)
+        outputs = []
+        for assembly in self.assemblies:
+            x_branch = x0
+            for blk in assembly:
+                x_branch = blk(x_branch)
+            out = self.proj(x_branch)
+            outputs.append(out)
+        return torch.cat(outputs, dim=1)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
