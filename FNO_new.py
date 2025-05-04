@@ -106,8 +106,7 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader, desc='Train',
-                    position=1, leave=False, ncols=80)
+        pbar = tqdm(train_loader, desc='Train', position=0, leave=False, ncols=80)
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -126,7 +125,6 @@ class FNOnd(nn.Module):
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
-            pbar.clear()
         return running / total
 
     def valid_epoch(self,
@@ -142,8 +140,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid',
-                        position=1, leave=False, ncols=80)
+            pbar = tqdm(test_loader, desc='Valid', position=0, leave=False, ncols=80)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -159,7 +156,6 @@ class FNOnd(nn.Module):
                 loss = self.loss_fn(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
-                pbar.clear()
         return val_running / total
 
     def train_model(self,
