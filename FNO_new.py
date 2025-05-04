@@ -126,7 +126,7 @@ class FNOnd(nn.Module):
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
-            pbar.close()
+            pbar.clear()
         return running / total
 
     def valid_epoch(self,
@@ -159,6 +159,7 @@ class FNOnd(nn.Module):
                 loss = self.loss_fn(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
+                pbar.clear()
         return val_running / total
 
     def train_model(self,
@@ -174,7 +175,7 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=False, ncols=80, position=0)
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, ncols=80, position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
                                     x_name=x_name, y_name=y_name)
