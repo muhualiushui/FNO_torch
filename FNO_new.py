@@ -106,7 +106,7 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader, desc='Train', leave=True, dynamic_ncols=False, position=1)
+        pbar = tqdm(train_loader, desc='Train', leave=False, dynamic_ncols=False, position=1)
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -141,7 +141,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', leave=True, dynamic_ncols=False, position=1)
+            pbar = tqdm(test_loader, desc='Valid', leave=False, dynamic_ncols=False, position=1)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
