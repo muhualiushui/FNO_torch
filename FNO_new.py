@@ -79,8 +79,8 @@ class FNOnd(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lift(x)
         output =[]
-        for _ in range(self.out_c):
-            for blk in self.blocks:
+        for blk in self.blocks:
+            for _ in range(self.out_c):
                 x = blk(x)
             output.append(self.proj(x))
         return torch.cat(output, dim=1)
