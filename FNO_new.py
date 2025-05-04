@@ -94,6 +94,7 @@ class FNOnd(nn.Module):
         return super().train(mode)
 
     def train_epoch(self,
+                    epoch_str: str,
                     train_loader: DataLoader,
                     optimizer: Optimizer,
                     device: torch.device,
@@ -107,9 +108,9 @@ class FNOnd(nn.Module):
         running = 0.0
         total = 0
         pbar = tqdm(train_loader,
-                    desc='Train',
+                    desc=f'{epoch_str} Train',
                     position=0, leave=False, dynamic_ncols=False,
-                    bar_format='{desc:<5} {bar} {n_fmt}/{total_fmt}')
+                    bar_format='{desc} {bar} {n_fmt}/{total_fmt}')
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -131,6 +132,7 @@ class FNOnd(nn.Module):
         return running / total
 
     def valid_epoch(self,
+                    epoch_str: str,
                     test_loader: DataLoader,
                     device: torch.device,
                     *,
@@ -144,9 +146,9 @@ class FNOnd(nn.Module):
         total = 0
         with torch.no_grad():
             pbar = tqdm(test_loader,
-                        desc='Valid',
+                        desc=f'{epoch_str} Valid',
                         position=0, leave=False, dynamic_ncols=False,
-                        bar_format='{desc:<5} {bar} {n_fmt}/{total_fmt}')
+                        bar_format='{desc} {bar} {n_fmt}/{total_fmt}')
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -177,18 +179,23 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(1, epochs + 1),
-                    bar_format='epoch {n_fmt}/{total_fmt}: {postfix}',
-                    leave=True, dynamic_ncols=False, position=0)
-        for epoch in pbar:
-            train_loss = self.train_epoch(train_loader, optimizer, device,
-                                    x_name=x_name, y_name=y_name)
-            val_loss   = self.valid_epoch(test_loader, device,
-                                    x_name=x_name, y_name=y_name)
+        for epoch in range(1, epochs + 1):
+            epoch_str = f'epoch {epoch}/{epochs}:'
+
+            train_loss = self.train_epoch(
+                epoch_str,
+                train_loader, optimizer, device,
+                x_name=x_name, y_name=y_name)
+
+            val_loss = self.valid_epoch(
+                epoch_str,
+                test_loader, device,
+                x_name=x_name, y_name=y_name)
+
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
-            pbar.set_postfix_str(f"train_loss={train_loss:.4f} "
-                                 f"val_loss={val_loss:.4f}")
+            print(f'{epoch_str} train_loss={train_loss:.4f} '
+                  f'val_loss={val_loss:.4f}', flush=True)
         return history
 
     def plot_loss(self, history: dict, save_path: str = None):
