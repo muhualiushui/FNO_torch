@@ -99,16 +99,14 @@ class FNOnd(nn.Module):
                     device: torch.device,
                     *,
                     x_name: str | None = None,
-                    y_name: str | None = None,
-                    epoch: int = None,
-                    total_epochs: int = None) -> float:
+                    y_name: str | None = None) -> float:
         """
         Run one training epoch and return average loss.
         """
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch}/{total_epochs} Train", leave=False, ncols=100, position=1)
+        pbar = tqdm(train_loader, desc='Train', leave=False, ncols=100, position=0)
         for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
@@ -134,9 +132,7 @@ class FNOnd(nn.Module):
                     device: torch.device,
                     *,
                     x_name: str | None = None,
-                    y_name: str | None = None,
-                    epoch: int = None,
-                    total_epochs: int = None) -> float:
+                    y_name: str | None = None) -> float:
         """
         Run one validation epoch and return average loss.
         """
@@ -144,7 +140,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc=f"Epoch {epoch}/{total_epochs} Valid", leave=False, ncols=100, position=1)
+            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=0)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -175,14 +171,12 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=False, ncols=100, position=0)
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, ncols=100, position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
-                                    x_name=x_name, y_name=y_name,
-                                    epoch=epoch, total_epochs=epochs)
+                                    x_name=x_name, y_name=y_name)
             val_loss   = self.valid_epoch(test_loader, device,
-                                    x_name=x_name, y_name=y_name,
-                                    epoch=epoch, total_epochs=epochs)
+                                    x_name=x_name, y_name=y_name)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
             pbar.set_postfix(train_loss=train_loss, val_loss=val_loss)
