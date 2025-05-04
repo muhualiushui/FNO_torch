@@ -102,7 +102,8 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        for batch in train_loader:
+        pbar = tqdm(train_loader, desc='Train', leave=False, position=0)
+        for batch in pbar:
             # Support both tuple/list batches and dict batches keyed by x_name/y_name
             if isinstance(batch, dict):
                 if x_name is None or y_name is None:
@@ -116,6 +117,7 @@ class FNOnd(nn.Module):
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
             loss = self.loss_fn(self(xb), yb)
+            pbar.set_postfix(loss=loss.item())
             loss.backward()
             optimizer.step()
             running += loss.item() * xb.size(0)
@@ -135,7 +137,8 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            for batch in test_loader:
+            pbar = tqdm(test_loader, desc='Valid', leave=False, position=0)
+            for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
                     if x_name is None or y_name is None:
@@ -148,6 +151,7 @@ class FNOnd(nn.Module):
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
                 loss = self.loss_fn(self(xb), yb)
+                pbar.set_postfix(val_loss=loss.item())
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
         return val_running / total
