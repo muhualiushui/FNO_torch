@@ -106,27 +106,25 @@ class FNOnd(nn.Module):
         super().train()
         running = 0.0
         total = 0
-        pbar = tqdm(train_loader, desc='Train', leave=False, ncols=100, position=1)
-        for batch in pbar:
-            # Support both tuple/list batches and dict batches keyed by x_name/y_name
-            if isinstance(batch, dict):
-                if x_name is None or y_name is None:
-                    raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
-                xb = batch[x_name].to(device)
-                yb = batch[y_name].to(device)
-            elif isinstance(batch, (list, tuple)):
-                xb = batch[0].to(device)
-                yb = batch[1].to(device)
-            else:
-                raise TypeError(f"Unsupported batch type: {type(batch)}")
-            optimizer.zero_grad()
-            loss = self.loss_fn(self(xb), yb)
-            loss.backward()
-            optimizer.step()
-            running += loss.item() * xb.size(0)
-            total += xb.size(0)
-        pbar.clear()  # Clear the progress bar display
-        pbar.close()  # Close the progress bar to avoid leftover lines
+        with tqdm(train_loader, desc='Train', leave=False, ncols=100, position=1) as pbar:
+            for batch in pbar:
+                # Support both tuple/list batches and dict batches keyed by x_name/y_name
+                if isinstance(batch, dict):
+                    if x_name is None or y_name is None:
+                        raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
+                    xb = batch[x_name].to(device)
+                    yb = batch[y_name].to(device)
+                elif isinstance(batch, (list, tuple)):
+                    xb = batch[0].to(device)
+                    yb = batch[1].to(device)
+                else:
+                    raise TypeError(f"Unsupported batch type: {type(batch)}")
+                optimizer.zero_grad()
+                loss = self.loss_fn(self(xb), yb)
+                loss.backward()
+                optimizer.step()
+                running += loss.item() * xb.size(0)
+                total += xb.size(0)
         return running / total
 
     def valid_epoch(self,
@@ -142,24 +140,22 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=2)
-            for batch in pbar:
-                # Support both tuple/list batches and dict batches keyed by x_name/y_name
-                if isinstance(batch, dict):
-                    if x_name is None or y_name is None:
-                        raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
-                    xb = batch[x_name].to(device)
-                    yb = batch[y_name].to(device)
-                elif isinstance(batch, (list, tuple)):
-                    xb = batch[0].to(device)
-                    yb = batch[1].to(device)
-                else:
-                    raise TypeError(f"Unsupported batch type: {type(batch)}")
-                loss = self.loss_fn(self(xb), yb)
-                val_running += loss.item() * xb.size(0)
-                total += xb.size(0)
-        pbar.clear()  # Clear the progress bar display
-        pbar.close()  # Close the progress bar to avoid leftover lines
+            with tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=2) as pbar:
+                for batch in pbar:
+                    # Support both tuple/list batches and dict batches keyed by x_name/y_name
+                    if isinstance(batch, dict):
+                        if x_name is None or y_name is None:
+                            raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
+                        xb = batch[x_name].to(device)
+                        yb = batch[y_name].to(device)
+                    elif isinstance(batch, (list, tuple)):
+                        xb = batch[0].to(device)
+                        yb = batch[1].to(device)
+                    else:
+                        raise TypeError(f"Unsupported batch type: {type(batch)}")
+                    loss = self.loss_fn(self(xb), yb)
+                    val_running += loss.item() * xb.size(0)
+                    total += xb.size(0)
         return val_running / total
 
     def train_model(self,
