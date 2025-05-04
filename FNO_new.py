@@ -38,7 +38,7 @@ class FNOBlockNd(nn.Module):
         slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
         x_fft = x_fft[tuple(slices)]
         # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('a') + i) for i in range(self.ndim)]
+        letters = [chr(ord('k') + i) for i in range(self.ndim)]
         sub_in  = 'bi' + ''.join(letters)
         sub_w   = 'io' + ''.join(letters)
         sub_out = 'bo' + ''.join(letters)
@@ -71,14 +71,19 @@ class FNOnd(nn.Module):
             FNOBlockNd(width, width, modes, activation)
             for _ in range(n_blocks)
         ])
-        self.proj = ConvNd(width, out_c, kernel_size=1)
+        self.proj = ConvNd(width, in_c, kernel_size=1)
         self.loss_fn = nn.BCEWithLogitsLoss()
+
+        self.out_c = out_c
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lift(x)
-        for blk in self.blocks:
-            x = blk(x)
-        return self.proj(x)
+        output =[]
+        for _ in range(self.out_c):
+            for blk in self.blocks:
+                x = blk(x)
+            output.append(self.proj(x))
+        return torch.cat(output, dim=1)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
