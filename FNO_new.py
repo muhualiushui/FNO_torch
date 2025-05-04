@@ -175,7 +175,7 @@ class FNOnd(nn.Module):
         """
         self.to(device)
         history = {'train_loss': [], 'val_loss': []}
-        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, ncols=100, position=0)
+        pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=False, ncols=100, position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
                                     x_name=x_name, y_name=y_name,
