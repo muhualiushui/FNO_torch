@@ -141,7 +141,7 @@ class FNOnd(nn.Module):
         val_running = 0.0
         total = 0
         with torch.no_grad():
-            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=1)
+            pbar = tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=2)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
