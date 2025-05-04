@@ -126,6 +126,7 @@ class FNOnd(nn.Module):
             optimizer.step()
             running += loss.item() * xb.size(0)
             total += xb.size(0)
+            pbar.close()
         return running / total
 
     def valid_epoch(self,
