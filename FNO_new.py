@@ -99,14 +99,52 @@ class FNOnd(nn.Module):
                     device: torch.device,
                     *,
                     x_name: str | None = None,
-                    y_name: str | None = None) -> float:
+                    y_name: str | None = None,
+                    epoch: int = None,
+                    total_epochs: int = None) -> float:
         """
         Run one training epoch and return average loss.
         """
         super().train()
         running = 0.0
         total = 0
-        with tqdm(train_loader, desc='Train', leave=False, ncols=100, position=1) as pbar:
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch}/{total_epochs} Train", leave=False, ncols=100, position=1)
+        for batch in pbar:
+            # Support both tuple/list batches and dict batches keyed by x_name/y_name
+            if isinstance(batch, dict):
+                if x_name is None or y_name is None:
+                    raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
+                xb = batch[x_name].to(device)
+                yb = batch[y_name].to(device)
+            elif isinstance(batch, (list, tuple)):
+                xb = batch[0].to(device)
+                yb = batch[1].to(device)
+            else:
+                raise TypeError(f"Unsupported batch type: {type(batch)}")
+            optimizer.zero_grad()
+            loss = self.loss_fn(self(xb), yb)
+            loss.backward()
+            optimizer.step()
+            running += loss.item() * xb.size(0)
+            total += xb.size(0)
+        return running / total
+
+    def valid_epoch(self,
+                    test_loader: DataLoader,
+                    device: torch.device,
+                    *,
+                    x_name: str | None = None,
+                    y_name: str | None = None,
+                    epoch: int = None,
+                    total_epochs: int = None) -> float:
+        """
+        Run one validation epoch and return average loss.
+        """
+        super().eval()
+        val_running = 0.0
+        total = 0
+        with torch.no_grad():
+            pbar = tqdm(test_loader, desc=f"Epoch {epoch}/{total_epochs} Valid", leave=False, ncols=100, position=1)
             for batch in pbar:
                 # Support both tuple/list batches and dict batches keyed by x_name/y_name
                 if isinstance(batch, dict):
@@ -119,43 +157,9 @@ class FNOnd(nn.Module):
                     yb = batch[1].to(device)
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
-                optimizer.zero_grad()
                 loss = self.loss_fn(self(xb), yb)
-                loss.backward()
-                optimizer.step()
-                running += loss.item() * xb.size(0)
+                val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
-        return running / total
-
-    def valid_epoch(self,
-                    test_loader: DataLoader,
-                    device: torch.device,
-                    *,
-                    x_name: str | None = None,
-                    y_name: str | None = None) -> float:
-        """
-        Run one validation epoch and return average loss.
-        """
-        super().eval()
-        val_running = 0.0
-        total = 0
-        with torch.no_grad():
-            with tqdm(test_loader, desc='Valid', leave=False, ncols=100, position=2) as pbar:
-                for batch in pbar:
-                    # Support both tuple/list batches and dict batches keyed by x_name/y_name
-                    if isinstance(batch, dict):
-                        if x_name is None or y_name is None:
-                            raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
-                        xb = batch[x_name].to(device)
-                        yb = batch[y_name].to(device)
-                    elif isinstance(batch, (list, tuple)):
-                        xb = batch[0].to(device)
-                        yb = batch[1].to(device)
-                    else:
-                        raise TypeError(f"Unsupported batch type: {type(batch)}")
-                    loss = self.loss_fn(self(xb), yb)
-                    val_running += loss.item() * xb.size(0)
-                    total += xb.size(0)
         return val_running / total
 
     def train_model(self,
@@ -174,9 +178,11 @@ class FNOnd(nn.Module):
         pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, ncols=100, position=0)
         for epoch in pbar:
             train_loss = self.train_epoch(train_loader, optimizer, device,
-                                    x_name=x_name, y_name=y_name)
+                                    x_name=x_name, y_name=y_name,
+                                    epoch=epoch, total_epochs=epochs)
             val_loss   = self.valid_epoch(test_loader, device,
-                                    x_name=x_name, y_name=y_name)
+                                    x_name=x_name, y_name=y_name,
+                                    epoch=epoch, total_epochs=epochs)
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
             pbar.set_postfix(train_loss=train_loss, val_loss=val_loss)
