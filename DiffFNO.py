@@ -90,7 +90,7 @@ class FNO4Denoiser(nn.Module):
         self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
-    def forward(self, x, t, c):
+    def forward(self, x, t, c, x_self_cond=None):
         # exactly the same logic you had in FNOnd.forward
         x = torch.cat([x, c], dim=1)
         t_emb = self.get_timestep_embedding(t)
@@ -171,7 +171,7 @@ class FNOnd(nn.Module):
         return emb
 
     def forward(self, x, t, c, x_self_cond=None):
-        return self.denoiser(x, t, c)
+        return self.denoiser(x, t, c, x_self_cond)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
@@ -204,7 +204,7 @@ class FNOnd(nn.Module):
             else:
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
-            loss = self(yb, xb)
+            loss = self.Diffusion(yb, xb)
             # loss = self.loss_fn(self(xb), yb)
             # loss = self.loss_fnV2(self(xb), yb)
             loss.backward()
@@ -239,7 +239,7 @@ class FNOnd(nn.Module):
                     yb = batch[1].to(device)
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
-                loss = self(yb, xb)
+                loss = self.Diffusion(yb, xb)
                 # loss = self.loss_fnV2(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
