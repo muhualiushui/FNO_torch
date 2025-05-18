@@ -7,7 +7,7 @@ from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 # from Brats.module.medseg import MedSegDiff
-from Diffusion.diffusionV2 import Diffusion
+from FNO_torch.Diffusion.diffusionV2 import Diffusion
 import math
 
 class DiceCELoss(nn.Module):
