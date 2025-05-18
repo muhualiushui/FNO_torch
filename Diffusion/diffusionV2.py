@@ -21,7 +21,7 @@ class Diffusion(nn.Module):
         image: conditioning image tensor of shape (B, C, H, W)
         """
         batch_size = x0.shape[0]
-        
+
         # sample random timesteps for each example
         t = torch.randint(0, self.timesteps, (batch_size,), device=x0.device)
 
@@ -29,7 +29,7 @@ class Diffusion(nn.Module):
         x_t, noise = self.noise(x0, t)
 
         # predict the noise
-        pred_noise = self.model(x_t, image, t)
+        pred_noise = self.model(x_t, t, image)
 
         return self.loss_fn(noise, pred_noise)
 
@@ -52,7 +52,7 @@ class Diffusion(nn.Module):
         image: conditioning image tensor
         """
         # predict noise at this step
-        pred_noise = self.model(x_t, image)
+        pred_noise = self.model(x_t,t, image)
         # gather parameters
         beta_t = self.betas[t].view(-1, 1, 1, 1)
         alpha_t = self.alphas[t].view(-1, 1, 1, 1)
