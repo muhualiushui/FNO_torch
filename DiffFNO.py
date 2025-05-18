@@ -76,9 +76,14 @@ class FNOBlockNd(nn.Module):
         return self.act(x_spec + self.bypass(x))
 
 class FNO4Denoiser(nn.Module):
-    def __init__(self, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
+    def __init__(self,in_c:int, out_c:int, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
                  get_timestep_embedding: Callable, time_mlp: nn.Module):
         super().__init__()
+        self.input_img_channels = in_c
+        self.mask_channels = out_c
+        self.self_condition = None
+        self.image_size = 192
+
         self.lift = lift
         self.assemblies = assemblies
         self.proj = proj
@@ -136,12 +141,10 @@ class FNOnd(nn.Module):
             nn.GELU(),
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
-        self.input_img_channels = in_c
-        self.mask_channels = out_c
-        self.self_condition = None
-        self.image_size = 192
 
         self.denoiser = FNO4Denoiser(
+            in_c=in_c,
+            out_c=out_c,
             lift=self.lift,
             assemblies=self.assemblies,
             proj=self.proj,
