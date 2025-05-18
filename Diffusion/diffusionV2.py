@@ -61,6 +61,7 @@ class Diffusion(nn.Module):
         x_prev = (1 / torch.sqrt(alpha_t)) * (x_t - (beta_t / torch.sqrt(1 - alpha_bar_t)) * pred_noise)
         return x_prev
 
+    @torch.no_grad()
     def Inference(self, image):
         """
         Runs the full reverse diffusion chain to produce a clean x0 prediction.
