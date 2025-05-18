@@ -7,7 +7,7 @@ from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 # from Brats.module.medseg import MedSegDiff
-from Diffusion import diffusionV2
+from Diffusion.diffusionV2 import Diffusion
 import math
 
 class DiceCELoss(nn.Module):
@@ -80,10 +80,6 @@ class FNO4Denoiser(nn.Module):
     def __init__(self,in_c:int, out_c:int, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
                  get_timestep_embedding: Callable, time_mlp: nn.Module):
         super().__init__()
-        self.input_img_channels = in_c/2
-        self.mask_channels = out_c
-        self.self_condition = None
-        self.image_size = 192
 
         self.lift = lift
         self.assemblies = assemblies
@@ -91,10 +87,13 @@ class FNO4Denoiser(nn.Module):
         self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
-    def forward(self, x, c):
+    def forward(self, x, t, c, x_self_cond=None):
         # exactly the same logic you had in FNOnd.forward
         x = torch.cat([x, c], dim=1)
+        t_emb = self.get_timestep_embedding(t)  
+        t_emb = self.time_mlp(t_emb)
         x0 = self.lift(x)
+        x0 = x0 + t_emb[..., None, None]
         outputs = []
         for assembly in self.assemblies:
             xb = x0
@@ -149,13 +148,26 @@ class FNOnd(nn.Module):
             get_timestep_embedding=self.get_timestep_embedding,
             time_mlp=self.time_mlp
         )
-        self.Diffusion = diffusionV2(
+        self.Diffusion = Diffusion(
             self.denoiser,
             timesteps=1000
         )
 
-    def forward(self, x, c):
-        return self.denoiser(x, c)
+    def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
+        """
+        Create sinusoidal timestep embeddings.
+        """
+        half_dim = self.time_embed_dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=t.device, dtype=torch.float32) * -emb)
+        emb = t.float().unsqueeze(1) * emb.unsqueeze(0)
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
+        if self.time_embed_dim % 2 == 1:  # zero pad
+            emb = F.pad(emb, (0, 1))
+        return emb
+
+    def forward(self, x, t, c, x_self_cond=None):
+        return self.denoiser(x, t, c, x_self_cond)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
@@ -189,7 +201,7 @@ class FNOnd(nn.Module):
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
             loss = self.Diffusion(yb, xb)
-            # loss = self.loss_fn(, yb)
+            # loss = self.loss_fn(self(xb), yb)
             # loss = self.loss_fnV2(self(xb), yb)
             loss.backward()
             optimizer.step()
