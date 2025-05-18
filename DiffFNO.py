@@ -79,7 +79,7 @@ class FNO4Denoiser(nn.Module):
     def __init__(self,in_c:int, out_c:int, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
                  get_timestep_embedding: Callable, time_mlp: nn.Module):
         super().__init__()
-        self.input_img_channels = in_c
+        self.input_img_channels = 4
         self.mask_channels = out_c
         self.self_condition = None
         self.image_size = 192
