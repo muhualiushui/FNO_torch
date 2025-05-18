@@ -75,6 +75,31 @@ class FNOBlockNd(nn.Module):
         # combine spectral + bypass
         return self.act(x_spec + self.bypass(x))
 
+class FNO4Denoiser(nn.Module):
+    def __init__(self, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
+                 get_timestep_embedding: Callable, time_mlp: nn.Module):
+        super().__init__()
+        self.lift = lift
+        self.assemblies = assemblies
+        self.proj = proj
+        self.get_timestep_embedding = get_timestep_embedding
+        self.time_mlp = time_mlp
+
+    def forward(self, x, t, c):
+        # exactly the same logic you had in FNOnd.forward
+        x = torch.cat([x, c], dim=1)
+        t_emb = self.get_timestep_embedding(t)
+        t_emb = self.time_mlp(t_emb)
+        x0 = self.lift(x)
+        x0 = x0 + t_emb[..., None, None]
+        outputs = []
+        for assembly in self.assemblies:
+            xb = x0
+            for blk in assembly:
+                xb = blk(xb)
+            outputs.append(self.proj(xb))
+        return torch.cat(outputs, dim=1)
+
 
 class FNOnd(nn.Module):
     """
@@ -116,8 +141,15 @@ class FNOnd(nn.Module):
         self.self_condition = None
         self.image_size = 192
 
+        self.denoiser = FNO4Denoiser(
+            lift=self.lift,
+            assemblies=self.assemblies,
+            proj=self.proj,
+            get_timestep_embedding=self.get_timestep_embedding,
+            time_mlp=self.time_mlp
+        )
         self.Diffusion = MedSegDiff(
-            self,
+            self.denoiser,
             timesteps=1000,
             objective='pred_noise'
         )
@@ -136,21 +168,7 @@ class FNOnd(nn.Module):
         return emb
 
     def forward(self, x, t, c, x_self_cond=None):
-        x = torch.cat([x, c], dim=1)
-        # compute time embeddings
-        t_emb = self.get_timestep_embedding(t)
-        t_emb = self.time_mlp(t_emb)
-        x0 = self.lift(x)
-        # add time embedding to feature maps (broadcast over spatial dims)
-        x0 = x0 + t_emb[..., None, None]
-        outputs = []
-        for assembly in self.assemblies:
-            x_branch = x0
-            for blk in assembly:
-                x_branch = blk(x_branch)
-            out = self.proj(x_branch)
-            outputs.append(out)
-        return torch.cat(outputs, dim=1)
+        return self.denoiser(x, t, c)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
