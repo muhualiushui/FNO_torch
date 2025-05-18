@@ -111,16 +111,16 @@ class FNOnd(nn.Module):
             nn.GELU(),
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
+        self.input_img_channels = self.in_c
+        self.mask_channels = self.out_c
+        self.self_condition = None
+        self.image_size = 192
+        
         self.Diffusion = MedSegDiff(
             self,
             timesteps=1000,
             objective='pred_noise'
         )
-
-        self.input_img_channels = self.in_c
-        self.mask_channels = self.out_c
-        self.self_condition = None
-        self.image_size = 192
 
     def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
         """
