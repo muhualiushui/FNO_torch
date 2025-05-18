@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from Diffusion.medseg import MedSegDiff
+from Brats.module.medseg import MedSegDiff
 import math
 
 class DiceCELoss(nn.Module):
