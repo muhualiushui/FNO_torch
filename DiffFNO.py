@@ -204,7 +204,7 @@ class FNOnd(nn.Module):
             else:
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
-            loss = self.Diffusion(yb, xb)
+            loss = self(yb, xb)
             # loss = self.loss_fn(self(xb), yb)
             # loss = self.loss_fnV2(self(xb), yb)
             loss.backward()
@@ -239,7 +239,7 @@ class FNOnd(nn.Module):
                     yb = batch[1].to(device)
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
-                loss = self.Diffusion(yb, xb)
+                loss = self(yb, xb)
                 # loss = self.loss_fnV2(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
