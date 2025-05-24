@@ -382,7 +382,7 @@ class FNOnd(nn.Module):
             get_timestep_embedding=self.get_timestep_embedding,
             time_mlp=self.time_mlp
         )
-        self.cond_model = ConditionModel(in_c, out_c, width/2)
+        self.cond_model = ConditionModel(in_c, out_c, width//2)
 
         self.Diffusion = Diffusion(
             self.denoiser,
