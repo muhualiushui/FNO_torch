@@ -57,6 +57,8 @@ class ConditionModel(nn.Module):
         )
         # Downsample
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # Project encoder features to match bottleneck channels
+        self.enc_proj = nn.Conv2d(features, features * 2, kernel_size=1)
         # Bottleneck
         self.bottleneck = nn.Sequential(
             nn.Conv2d(features, features * 2, kernel_size=3, padding=1),
@@ -64,7 +66,7 @@ class ConditionModel(nn.Module):
             nn.Conv2d(features * 2, features * 2, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
         )
-        # Upsample
+        # Upsample bottleneck features
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         # Decoder
         self.dec_conv = nn.Sequential(
@@ -79,12 +81,15 @@ class ConditionModel(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Encoder path
         enc = self.enc_conv(x)             # [B, features, H, W]
+        # Project encoder map to 2*features channels
+        enc_proj = self.enc_proj(enc)      # [B, features*2, H, W]
         down = self.pool(enc)              # [B, features, H/2, W/2]
         # Bottleneck path
         bott = self.bottleneck(down)       # [B, features*2, H/2, W/2]
         # Upsample and decoder
         up = self.up(bott)                 # [B, features*2, H, W]
-        dec = self.dec_conv(up + enc)      # skip connection
+        # Fuse upsampled bottleneck and projected encoder via addition
+        dec = self.dec_conv(up + enc_proj)
         # Anchor output: coarse segmentation map
         anchor = self.anchor_out(dec)      # [B, num_classes, H, W]
         # Semantic output: global embedding by spatial averaging
