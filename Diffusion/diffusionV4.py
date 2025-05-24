@@ -157,15 +157,13 @@ class Diffusion(nn.Module):
 
         # sample random timesteps for each example
         t = torch.randint(0, self.timesteps, (batch_size,), device=x0.device)
-        print(t.shape)
         # add noise at those timesteps
         x_t, noise = self.noise(x0, t)
-        print(t)
         # apply uncertain spatial attention on noisy features
         x_t = self.usa(cond_anchor, x_t)
 
         # predict the noise
-        pred_noise = self.model(x_t, t, cond_sem_map)
+        pred_noise = self.model(x_t, cond_sem_map, t)
 
         pred_x0 = self.pred_x0(x_t, t, pred_noise)
 
@@ -197,7 +195,7 @@ class Diffusion(nn.Module):
         cond_sem_map = cond_semantic.view(x_t.size(0), -1, 1, 1).expand(x_t.size(0), -1, H, W)
 
         # predict noise at this step
-        pred_noise = self.model(x_t, t, cond_sem_map)
+        pred_noise = self.model(x_t, cond_sem_map, t)
         # gather parameters
         beta_t = self.betas[t].view(-1, 1, 1, 1)
         alpha_t = self.alphas[t].view(-1, 1, 1, 1)

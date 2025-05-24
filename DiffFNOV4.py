@@ -295,22 +295,22 @@ class SS_Former(nn.Module):
 
     def forward(
         self,
-        diff_unet_out: torch.Tensor,
+        x_t: torch.Tensor,
         cond_unet_out: torch.Tensor,
         t_emb: torch.Tensor
     ) -> torch.Tensor:
         """
         Args:
             t_emb: timestep embedding, shape (B, time_emb_dim)
-            diff_unet_out: diffusion U-Net output, shape (B, width, H, W)
+            x_t: noised label, shape (B, width, H, W)
             cond_unet_out: condition U-Net output, shape (B, width, H, W)
         Returns:
             output tensor, shape (B, width, H, W)
         """
         # first pass: condition as Q, diffusion as K
-        former_output = self.fatt1(cond_unet_out, diff_unet_out, t_emb)
+        former_output = self.fatt1(cond_unet_out, x_t, t_emb)
         # second pass: diffusion as Q, former_output as K
-        later_output = self.fatt2(diff_unet_out, former_output, t_emb)
+        later_output = self.fatt2(x_t, former_output, t_emb)
         return later_output
 
 
@@ -326,12 +326,11 @@ class Denoiser(nn.Module):
         self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
-    def forward(self,diff_unet_out, cond_unet_out, t):
-        print(t.shape)
+    def forward(self,x_t, cond_unet_out, t):
         # exactly the same logic you had in FNOnd.forward
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
-        diff_0, cond_0 = self.lift(diff_unet_out), self.lift(cond_unet_out)
+        diff_0, cond_0 = self.lift(x_t), self.lift(cond_unet_out)
         outputs = []
         for assembly in self.assemblies:
             diff_b, cond_b = diff_0, cond_0
@@ -392,7 +391,6 @@ class FNOnd(nn.Module):
         )
 
     def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
-        print(t.shape)
         """
         Create sinusoidal timestep embeddings.
         """
