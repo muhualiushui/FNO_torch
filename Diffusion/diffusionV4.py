@@ -154,7 +154,6 @@ class Diffusion(nn.Module):
         # broadcast semantic embedding to spatial map matching x_t
         _, _, H, W = x0.shape
         cond_sem_map = cond_semantic.view(batch_size, -1, 1, 1).expand(batch_size, -1, H, W)
-        print(cond_sem_map.shape)
         # sample random timesteps for each example
         t = torch.randint(0, self.timesteps, (batch_size,), device=x0.device)
         # add noise at those timesteps
