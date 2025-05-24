@@ -330,6 +330,7 @@ class Denoiser(nn.Module):
         # exactly the same logic you had in FNOnd.forward
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
+        print(x_t, cond_unet_out.shape, t.shape)
         diff_0, cond_0 = self.lift(x_t), cond_unet_out.clone()
         outputs = []
         for assembly in self.assemblies:
