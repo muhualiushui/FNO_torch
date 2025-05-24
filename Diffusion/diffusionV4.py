@@ -160,7 +160,7 @@ class Diffusion(nn.Module):
         print(t.shape)
         # add noise at those timesteps
         x_t, noise = self.noise(x0, t)
-
+        print(t)
         # apply uncertain spatial attention on noisy features
         x_t = self.usa(cond_anchor, x_t)
 
