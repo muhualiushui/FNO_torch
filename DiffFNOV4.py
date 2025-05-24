@@ -76,67 +76,97 @@ class NBPFilter(nn.Module):
         filt = self.act(self.final_conv(x))  # (B, in_channels, H, W)
         return M * filt
 
-class CrossAttention(nn.Module):
-    def __init__(self, dim, heads=8, dim_head=64):
-        """
-        Cross‐attention block.
+# class CrossAttention(nn.Module):
+#     def __init__(self, dim, heads=8, dim_head=64):
+#         """
+#         Cross‐attention block.
         
-        Args:
-            dim: number of channels in each U-Net feature map
-            heads: number of attention heads
-            dim_head: dimensionality of each head
-        """
+#         Args:
+#             dim: number of channels in each U-Net feature map
+#             heads: number of attention heads
+#             dim_head: dimensionality of each head
+#         """
+#         super().__init__()
+#         self.heads = heads
+#         self.scale = dim_head ** -0.5
+#         inner_dim = heads * dim_head
+
+#         self.to_q = nn.Linear(dim, inner_dim, bias=False)
+#         self.to_k = nn.Linear(dim, inner_dim, bias=False)
+#         self.to_v = nn.Linear(dim, inner_dim, bias=False)
+#         self.to_out = nn.Linear(inner_dim, dim)
+
+#     def forward(self, Q_condidate: torch.Tensor, K_condidate: torch.Tensor):
+#         """
+#         Args:
+#             Q_condidate: shape (B, C, H, W)
+#             K_condidate: shape (B, C, H, W)
+#         Returns:
+#             out: attended features, shape (B, C, H, W)
+#             K: key tensor before splitting heads, shape (B, N, heads*dim_head)
+#             Q: query tensor before splitting heads, shape (B, N, heads*dim_head)
+#         """
+#         B, C, H, W = Q_condidate.shape
+#         N = H * W
+
+#         # flatten spatial dims → (B, N, C)
+#         q_in = Q_condidate.flatten(2).permute(0, 2, 1)
+#         k_in = K_condidate.flatten(2).permute(0, 2, 1)
+#         v_in = k_in
+
+#         # project
+#         Q = self.to_q(q_in)  # (B, N, heads*dim_head)
+#         K = self.to_k(k_in)  # (B, N, heads*dim_head)
+#         V = self.to_v(v_in)  # (B, N, heads*dim_head)
+
+#         # split heads
+#         Q_heads = Q.view(B, N, self.heads, -1).permute(0, 2, 1, 3)  # (B, heads, N, dim_head)
+#         K_heads = K.view(B, N, self.heads, -1).permute(0, 2, 1, 3)
+#         V_heads = V.view(B, N, self.heads, -1).permute(0, 2, 1, 3)
+
+#         # scaled dot‐product attention
+#         attn = torch.matmul(Q_heads, K_heads.transpose(-2, -1)) * self.scale  # (B, heads, N, N)
+#         attn = attn.softmax(dim=-1)
+#         out = torch.matmul(attn, V_heads)  # (B, heads, N, dim_head)
+
+#         # merge heads & project out
+#         out = out.permute(0, 2, 1, 3).contiguous().view(B, N, self.heads * (out.size(-1)))
+#         out = self.to_out(out)  # (B, N, C)
+#         out = out.permute(0, 2, 1).view(B, C, H, W)
+#         # reshape Q and K back to spatial grids
+#         Q_spatial = Q.permute(0, 2, 1).view(B, C, H, W)
+#         K_spatial = K.permute(0, 2, 1).view(B, C, H, W)
+#         return out, K_spatial, Q_spatial
+class FlashCrossAttention(nn.Module):
+    def __init__(self, channels):
         super().__init__()
-        self.heads = heads
-        self.scale = dim_head ** -0.5
-        inner_dim = heads * dim_head
+        self.to_q = nn.Conv2d(channels, channels, 1, bias=False)
+        self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
+        self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
+        self.proj = nn.Conv2d(channels, channels, 1)
 
-        self.to_q = nn.Linear(dim, inner_dim, bias=False)
-        self.to_k = nn.Linear(dim, inner_dim, bias=False)
-        self.to_v = nn.Linear(dim, inner_dim, bias=False)
-        self.to_out = nn.Linear(inner_dim, dim)
+    def forward(self, Q, K):
+        B, C, H, W = Q.shape
+        # project and flatten → (B, N, C)
+        q = self.to_q(Q).flatten(2).permute(0, 2, 1)
+        k = self.to_k(K).flatten(2).permute(0, 2, 1)
+        v = self.to_v(K).flatten(2).permute(0, 2, 1)
 
-    def forward(self, Q_condidate: torch.Tensor, K_condidate: torch.Tensor):
-        """
-        Args:
-            Q_condidate: shape (B, C, H, W)
-            K_condidate: shape (B, C, H, W)
-        Returns:
-            out: attended features, shape (B, C, H, W)
-            K: key tensor before splitting heads, shape (B, N, heads*dim_head)
-            Q: query tensor before splitting heads, shape (B, N, heads*dim_head)
-        """
-        B, C, H, W = Q_condidate.shape
-        N = H * W
+        # flash‐optimized attention (PyTorch ≥2.0)
+        attn_out = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=None,
+            dropout_p=0.0,
+            is_causal=False
+        )  # → (B, N, C)
 
-        # flatten spatial dims → (B, N, C)
-        q_in = Q_condidate.flatten(2).permute(0, 2, 1)
-        k_in = K_condidate.flatten(2).permute(0, 2, 1)
-        v_in = k_in
+        # reshape back → (B, C, H, W)
+        out = attn_out.permute(0, 2, 1).view(B, C, H, W)
 
-        # project
-        Q = self.to_q(q_in)  # (B, N, heads*dim_head)
-        K = self.to_k(k_in)  # (B, N, heads*dim_head)
-        V = self.to_v(v_in)  # (B, N, heads*dim_head)
-
-        # split heads
-        Q_heads = Q.view(B, N, self.heads, -1).permute(0, 2, 1, 3)  # (B, heads, N, dim_head)
-        K_heads = K.view(B, N, self.heads, -1).permute(0, 2, 1, 3)
-        V_heads = V.view(B, N, self.heads, -1).permute(0, 2, 1, 3)
-
-        # scaled dot‐product attention
-        attn = torch.matmul(Q_heads, K_heads.transpose(-2, -1)) * self.scale  # (B, heads, N, N)
-        attn = attn.softmax(dim=-1)
-        out = torch.matmul(attn, V_heads)  # (B, heads, N, dim_head)
-
-        # merge heads & project out
-        out = out.permute(0, 2, 1, 3).contiguous().view(B, N, self.heads * (out.size(-1)))
-        out = self.to_out(out)  # (B, N, C)
-        out = out.permute(0, 2, 1).view(B, C, H, W)
-        # reshape Q and K back to spatial grids
-        Q_spatial = Q.permute(0, 2, 1).view(B, C, H, W)
-        K_spatial = K.permute(0, 2, 1).view(B, C, H, W)
-        return out, K_spatial, Q_spatial
+        # also return Q and K in spatial form
+        Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
+        K_sp = k.permute(0, 2, 1).view(B, C, H, W)
+        return Q_sp, K_sp, self.proj(out)
 
 
 
@@ -223,7 +253,8 @@ class ATTFNOBlock(nn.Module):
         # Enforce that heads * dim_head matches model width for consistency
         assert heads * dim_head == width, "heads * dim_head must equal width for consistent channel size"
         # cross-attention module
-        self.cross_attn = CrossAttention(dim=width, heads=heads, dim_head=dim_head)
+        # self.cross_attn = CrossAttention(dim=width, heads=heads, dim_head=dim_head)
+        self.cross_attn = FlashCrossAttention(width)
         # FNO block input/output channels equal to width for consistency
         self.fno_block = FNOBlockNd(
             in_c=width,
@@ -359,7 +390,7 @@ class FNOnd(nn.Module):
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.assemblies = nn.ModuleList([
             nn.ModuleList([
-                SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=6, nbf_hidden_channels=64)
+                SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=64)
                 for _ in range(n_blocks)
             ])
             for _ in range(out_c)
