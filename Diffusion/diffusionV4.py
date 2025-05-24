@@ -157,7 +157,7 @@ class Diffusion(nn.Module):
 
         # sample random timesteps for each example
         t = torch.randint(0, self.timesteps, (batch_size,), device=x0.device)
-
+        print(t.shape)
         # add noise at those timesteps
         x_t, noise = self.noise(x0, t)
 

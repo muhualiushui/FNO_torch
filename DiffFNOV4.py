@@ -327,6 +327,7 @@ class Denoiser(nn.Module):
         self.time_mlp = time_mlp
 
     def forward(self,diff_unet_out, cond_unet_out, t):
+        print(t.shape)
         # exactly the same logic you had in FNOnd.forward
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
@@ -391,6 +392,7 @@ class FNOnd(nn.Module):
         )
 
     def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
+        print(t.shape)
         """
         Create sinusoidal timestep embeddings.
         """
