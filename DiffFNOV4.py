@@ -9,8 +9,6 @@ from tqdm.auto import tqdm
 import math
 from FNO_torch.Diffusion.diffusionV4 import Diffusion, ConditionModel
 
-from performer_pytorch import FastAttention
-
 class NBPFilter(nn.Module):
     def __init__(
         self,
@@ -146,8 +144,6 @@ class FlashCrossAttention(nn.Module):
         self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
         self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
         self.proj = nn.Conv2d(channels, channels, 1)
-        # Performer-based linear attention
-        self.attn = FastAttention(dim=channels, causal=False)
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
@@ -160,9 +156,13 @@ class FlashCrossAttention(nn.Module):
         q = q_proj.view(B, C, N).permute(0, 2, 1)
         k = k_proj.view(B, C, N).permute(0, 2, 1)
         v = v_proj.view(B, C, N).permute(0, 2, 1)
-        # Performer linear attention
-        # q, k, v: (B, N, C)
-        attn_out = self.attn(q, k, v)  # (B, N, C)
+        # flash-optimized attention without returning weights
+        attn_out = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=None,
+            dropout_p=0.0,
+            is_causal=False
+        )  # (B, N, C)
         # reshape back to spatial
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
         # use projection outputs directly as spatial Q and K
