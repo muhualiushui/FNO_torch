@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 import math
 from FNO_torch.Diffusion.diffusionV4 import Diffusion, ConditionModel
 
-from performer_pytorch import FastAttention
+from torch.nn import MultiheadAttention
 
 class NBPFilter(nn.Module):
     def __init__(
@@ -140,14 +140,14 @@ class NBPFilter(nn.Module):
 #         K_spatial = K.permute(0, 2, 1).view(B, C, H, W)
 #         return out, K_spatial, Q_spatial
 class FlashCrossAttention(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels, heads=1):
         super().__init__()
         self.to_q = nn.Conv2d(channels, channels, 1, bias=False)
         self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
         self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
         self.proj = nn.Conv2d(channels, channels, 1)
-        # Performer-based linear attention
-        self.attn = FastAttention(dim=channels, causal=False)
+        self.mha = MultiheadAttention(embed_dim=channels, num_heads=heads, batch_first=True)
+        self.heads = heads
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
@@ -160,9 +160,8 @@ class FlashCrossAttention(nn.Module):
         q = q_proj.view(B, C, N).permute(0, 2, 1)
         k = k_proj.view(B, C, N).permute(0, 2, 1)
         v = v_proj.view(B, C, N).permute(0, 2, 1)
-        # Performer linear attention
-        # q, k, v: (B, N, C)
-        attn_out = self.attn(q, k, v)  # (B, N, C)
+        # built-in multi-head attention
+        attn_out, _ = self.mha(q, k, v)  # (B, N, C)
         # reshape back to spatial
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
         # use projection outputs directly as spatial Q and K
@@ -256,7 +255,7 @@ class ATTFNOBlock(nn.Module):
         assert heads * dim_head == width, "heads * dim_head must equal width for consistent channel size"
         # cross-attention module
         # self.cross_attn = CrossAttention(dim=width, heads=heads, dim_head=dim_head)
-        self.cross_attn = FlashCrossAttention(width)
+        self.cross_attn = FlashCrossAttention(width, heads=heads)
         # FNO block input/output channels equal to width for consistency
         self.fno_block = FNOBlockNd(
             in_c=width,
