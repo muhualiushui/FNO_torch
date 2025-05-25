@@ -34,7 +34,7 @@ class NBPFilter(nn.Module):
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
             conv = nn.Conv2d(hidden_channels, hidden_channels, kernel_size=3, padding=1)
-            norm = nn.GroupNorm(num_groups=1, num_channels=hidden_channels)
+            norm = nn.LayerNorm(hidden_channels)
             self.blocks.append(nn.ModuleDict({
                 "conv": conv,
                 "norm": norm,
@@ -62,7 +62,10 @@ class NBPFilter(nn.Module):
         # 2) R blocks of conv + LayerNorm + FiLM
         for blk in self.blocks:
             x = blk["conv"](x)
-            x = blk["norm"](x)
+            # apply LayerNorm over channels without flattening:
+            x = x.permute(0, 2, 3, 1)         # B, H, W, C
+            x = blk["norm"](x)               # LayerNorm over last dim C
+            x = x.permute(0, 3, 1, 2)         # B, C, H, W
 
             # FiLM
             scale = blk["mlp_scale"](t_emb).view(B, -1, 1, 1)
@@ -225,7 +228,6 @@ class FNOBlockNd(nn.Module):
         x_combined = x1_spec * x2_spec
 
         # 5) apply Neural Band-Pass filter conditioned on t_emb
-        print(x_combined.shape)
         x_filtered = self.nbp_filter(x_combined, t_emb)
 
         return x_filtered
@@ -387,7 +389,7 @@ class FNOnd(nn.Module):
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.assemblies = nn.ModuleList([
             nn.ModuleList([
-                SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=64)
+                SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=32)
                 for _ in range(n_blocks)
             ])
             for _ in range(out_c)
