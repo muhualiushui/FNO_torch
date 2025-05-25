@@ -162,7 +162,6 @@ class FlashCrossAttention(nn.Module):
             attn_mask=None,
             dropout_p=0.0,
             is_causal=False,
-            need_weights=False
         )  # (B, N, C)
         # reshape back to spatial
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
