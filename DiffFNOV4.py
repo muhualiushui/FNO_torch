@@ -147,27 +147,26 @@ class FlashCrossAttention(nn.Module):
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
-        N = H * W
-        # convolutional projections
-        q_proj = self.to_q(Q)    # (B, C, H, W)
-        k_proj = self.to_k(K)
-        v_proj = self.to_v(K)
-        # flatten for attention: (B, N, C)
-        q = q_proj.view(B, C, N).permute(0, 2, 1)
-        k = k_proj.view(B, C, N).permute(0, 2, 1)
-        v = v_proj.view(B, C, N).permute(0, 2, 1)
-        # flash-optimized attention without returning weights
+        # project and flatten → (B, N, C)
+        q = self.to_q(Q).flatten(2).permute(0, 2, 1)
+        k = self.to_k(K).flatten(2).permute(0, 2, 1)
+        v = self.to_v(K).flatten(2).permute(0, 2, 1)
+
+        # flash‐optimized attention (PyTorch ≥2.0)
         attn_out = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=None,
-            dropout_p=0.0,
+            dropout_p=0.1,
             is_causal=False,
-        )  # (B, N, C)
-        # reshape back to spatial
+
+        )  # → (B, N, C)
+
+        # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
-        # use projection outputs directly as spatial Q and K
-        Q_sp = q_proj
-        K_sp = k_proj
+
+        # also return Q and K in spatial form
+        Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
+        K_sp = k.permute(0, 2, 1).view(B, C, H, W)
         return Q_sp, K_sp, self.proj(out)
 
 
@@ -304,7 +303,7 @@ class SS_Former(nn.Module):
         dim_head: int,
         fno_modes: List[int],
         nbf_hidden_channels: int = 64,
-        nbf_num_blocks: int = 6
+        nbf_num_blocks: int = 3
     ):
         super().__init__()
         # first fusion block: condition then diffusion
