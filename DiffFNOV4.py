@@ -9,6 +9,8 @@ from tqdm.auto import tqdm
 import math
 from FNO_torch.Diffusion.diffusionV4 import Diffusion, ConditionModel
 
+from performer_pytorch import FastAttention
+
 class NBPFilter(nn.Module):
     def __init__(
         self,
@@ -144,29 +146,28 @@ class FlashCrossAttention(nn.Module):
         self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
         self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
         self.proj = nn.Conv2d(channels, channels, 1)
+        # Performer-based linear attention
+        self.attn = FastAttention(dim=channels, causal=False)
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
-        # project and flatten → (B, N, C)
-        q = self.to_q(Q).flatten(2).permute(0, 2, 1)
-        k = self.to_k(K).flatten(2).permute(0, 2, 1)
-        v = self.to_v(K).flatten(2).permute(0, 2, 1)
-
-        # flash‐optimized attention (PyTorch ≥2.0)
-        attn_out = F.scaled_dot_product_attention(
-            q, k, v,
-            attn_mask=None,
-            dropout_p=0.1,
-            is_causal=False,
-
-        )  # → (B, N, C)
-
-        # reshape back → (B, C, H, W)
+        N = H * W
+        # convolutional projections
+        q_proj = self.to_q(Q)    # (B, C, H, W)
+        k_proj = self.to_k(K)
+        v_proj = self.to_v(K)
+        # flatten for attention: (B, N, C)
+        q = q_proj.view(B, C, N).permute(0, 2, 1)
+        k = k_proj.view(B, C, N).permute(0, 2, 1)
+        v = v_proj.view(B, C, N).permute(0, 2, 1)
+        # Performer linear attention
+        # q, k, v: (B, N, C)
+        attn_out = self.attn(q, k, v)  # (B, N, C)
+        # reshape back to spatial
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
-
-        # also return Q and K in spatial form
-        Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
-        K_sp = k.permute(0, 2, 1).view(B, C, H, W)
+        # use projection outputs directly as spatial Q and K
+        Q_sp = q_proj
+        K_sp = k_proj
         return Q_sp, K_sp, self.proj(out)
 
 
@@ -341,6 +342,7 @@ class SS_Former(nn.Module):
         """
         # first pass: condition as Q, diffusion as K
         former_output = self.fatt1(cond_unet_out, x_t, t_emb)
+        
         # second pass: diffusion as Q, former_output as K
         later_output = self.fatt2(x_t, former_output, t_emb)
         return later_output
