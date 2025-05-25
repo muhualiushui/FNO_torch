@@ -156,8 +156,10 @@ class FlashCrossAttention(nn.Module):
         attn_out = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=None,
-            dropout_p=0.0,
-            is_causal=False
+            dropout_p=0.1,
+            is_causal=False,
+            need_weights=False,
+
         )  # → (B, N, C)
 
         # reshape back → (B, C, H, W)
@@ -361,7 +363,7 @@ class Denoiser(nn.Module):
         # exactly the same logic you had in FNOnd.forward
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
-        diff_0, cond_0 = self.lift(x_t), cond_unet_out.clone()
+        diff_0, cond_0 = self.lift(x_t), cond_unet_out
         outputs = []
         for assembly in self.assemblies:
             diff_b, cond_b = diff_0, cond_0
