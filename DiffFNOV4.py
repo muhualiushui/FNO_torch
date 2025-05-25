@@ -228,6 +228,7 @@ class FNOBlockNd(nn.Module):
         x_combined = x1_spec * x2_spec
 
         # 5) apply Neural Band-Pass filter conditioned on t_emb
+        print(x_combined.shape)
         x_filtered = self.nbp_filter(x_combined, t_emb)
 
         return x_filtered
@@ -361,7 +362,6 @@ class Denoiser(nn.Module):
         # exactly the same logic you had in FNOnd.forward
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
-        print(x_t.shape, cond_unet_out.shape, t.shape)
         diff_0, cond_0 = self.lift(x_t), cond_unet_out.clone()
         outputs = []
         for assembly in self.assemblies:
