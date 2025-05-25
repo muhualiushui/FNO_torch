@@ -158,7 +158,6 @@ class FlashCrossAttention(nn.Module):
             attn_mask=None,
             dropout_p=0.1,
             is_causal=False,
-            need_weights=False,
 
         )  # → (B, N, C)
 
