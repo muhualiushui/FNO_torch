@@ -214,11 +214,15 @@ class FNOBlockNd(nn.Module):
         x1_fft = torch.fft.rfftn(x1, dim=dims, norm='ortho')
         x1_fft = x1_fft[tuple(slices)]
         out1_fft = torch.einsum(eq, x1_fft, self.weight)
+        del x1_fft
+        torch.cuda.empty_cache()
 
         # 2) FFT, trim, filter for x2
         x2_fft = torch.fft.rfftn(x2, dim=dims, norm='ortho')
         x2_fft = x2_fft[tuple(slices)]
         out2_fft = torch.einsum(eq, x2_fft, self.weight)
+        del x2_fft
+        torch.cuda.empty_cache()
 
         # 3) inverse FFT back to spatial for both
         spatial = x1.shape[-self.ndim:]
