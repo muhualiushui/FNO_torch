@@ -34,7 +34,7 @@ class NBPFilter(nn.Module):
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
             conv = nn.Conv2d(hidden_channels, hidden_channels, kernel_size=3, padding=1)
-            norm = nn.LayerNorm([hidden_channels, 1, 1])
+            norm = nn.GroupNorm(num_groups=1, num_channels=hidden_channels)
             self.blocks.append(nn.ModuleDict({
                 "conv": conv,
                 "norm": norm,
@@ -62,10 +62,7 @@ class NBPFilter(nn.Module):
         # 2) R blocks of conv + LayerNorm + FiLM
         for blk in self.blocks:
             x = blk["conv"](x)
-            # LayerNorm over each channel:
-            x = x.view(B, x.shape[1], -1)
             x = blk["norm"](x)
-            x = x.view(B, x.shape[1], H, W)
 
             # FiLM
             scale = blk["mlp_scale"](t_emb).view(B, -1, 1, 1)
