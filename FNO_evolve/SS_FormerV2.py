@@ -173,6 +173,8 @@ class FlashCrossAttention(nn.Module):
         )  # → (B, N, C) on GPU 1
         attn_out = attn_out_off.to(device_main)          # move result back
 
+        print('pass once')
+
         # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
 
