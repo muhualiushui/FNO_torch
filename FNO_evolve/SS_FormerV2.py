@@ -161,7 +161,7 @@ class FlashCrossAttention(nn.Module):
 
         # offload attention to another GPU
         device_main = q.device                           # e.g. 'cuda:0'
-        device_off = torch.device('cuda:1')              # choose an idle GPU
+        device_off = torch.device('cuda:2')              # choose an idle GPU
         q_off = q.to(device_off)
         k_off = k.to(device_off)
         v_off = v.to(device_off)
