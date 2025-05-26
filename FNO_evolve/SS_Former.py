@@ -161,7 +161,6 @@ class FlashCrossAttention(nn.Module):
         # also return Q and K in spatial form
         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
-        print('pass once')
         return Q_sp, K_sp, self.proj(out)
 
 
@@ -336,6 +335,8 @@ class SS_Former(nn.Module):
         """
         # first pass: condition as Q, diffusion as K
         former_output = self.fatt1(cond_unet_out, x_t, t_emb)
+
+        print(former_output)
         # second pass: diffusion as Q, former_output as K
         later_output = self.fatt2(x_t, former_output, t_emb)
         return later_output
