@@ -161,6 +161,7 @@ class FlashCrossAttention(nn.Module):
         # also return Q and K in spatial form
         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
+        print('pass once')
         return Q_sp, K_sp, self.proj(out)
 
 
