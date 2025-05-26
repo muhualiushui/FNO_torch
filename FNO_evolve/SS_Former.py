@@ -354,4 +354,6 @@ class SS_Former(nn.Module):
         # bring the result back to the main device
         later_output = later_off.to(device_main)
 
+        print('pass')
+
         return later_output
