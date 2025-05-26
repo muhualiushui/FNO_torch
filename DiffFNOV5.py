@@ -45,7 +45,6 @@ class FNOnd(nn.Module):
                  out_c: int,
                  modes: List[int],
                  width: int,
-                 activation: Callable,
                  n_blocks: int = 4):
         super().__init__()
         self.ndim = len(modes)
