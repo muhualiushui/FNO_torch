@@ -167,7 +167,6 @@ class FlashCrossAttention(nn.Module):
         v_off = v.to(device_off)
         attn_out_off = F.scaled_dot_product_attention(
             q_off, k_off, v_off,
-            compute_mode='flash',
             attn_mask=None,
             dropout_p=0.1,
             is_causal=False,
