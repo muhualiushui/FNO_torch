@@ -146,14 +146,21 @@ class FlashCrossAttention(nn.Module):
         k = self.to_k(K).flatten(2).permute(0, 2, 1)
         v = self.to_v(K).flatten(2).permute(0, 2, 1)
 
-        # flash‐optimized attention (PyTorch ≥2.0)
+        # convert to half precision for attention
+        q_half = q.half()
+        k_half = k.half()
+        v_half = v.half()
+
+        # flash-optimized attention in half precision
         attn_out = F.scaled_dot_product_attention(
-            q, k, v,
+            q_half, k_half, v_half,
             attn_mask=None,
             dropout_p=0.1,
             is_causal=False,
+        )
 
-        )  # → (B, N, C)
+        # convert attention output back to original precision
+        attn_out = attn_out.to(q.dtype)  # back to float32 or original dtype
 
         # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
@@ -333,10 +340,23 @@ class SS_Former(nn.Module):
         Returns:
             output tensor, shape (B, width, H, W)
         """
-        # first pass: condition as Q, diffusion as K
-        former_output = self.fatt1(cond_unet_out, x_t, t_emb)
+        # remember original device
+        orig_device = x_t.device
 
-        # second pass: diffusion as Q, former_output as K
-        later_output = self.fatt2(x_t, former_output, t_emb)
+        # first pass on device 1
+        device1 = torch.device('cuda:1')
+        cond1 = cond_unet_out.to(device1)
+        x1 = x_t.to(device1)
+        t_emb1 = t_emb.to(device1)
+        former_output = self.fatt1(cond1, x1, t_emb1)
+        former_output = former_output.to(orig_device)
+
+        # second pass on device 2
+        device2 = torch.device('cuda:2')
+        x2 = x_t.to(device2)
+        former2 = former_output.to(device2)
+        t_emb2 = t_emb.to(device2)
+        later_output = self.fatt2(x2, former2, t_emb2)
+        later_output = later_output.to(orig_device)
 
         return later_output
