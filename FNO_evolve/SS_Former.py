@@ -333,25 +333,24 @@ class SS_Former(nn.Module):
         Returns:
             output tensor, shape (B, width, H, W)
         """
-        # offload both ATTFNOBlocks to GPU 1 to reduce memory on the main device
-        device_main = x_t.device                # original device, e.g., 'cuda:0'
-        device_off = torch.device('cuda:1')     # offload device
+        # determine devices
+        device_main = x_t.device             # original input device
+        device1 = torch.device('cuda:1')     # device for first block
+        device2 = torch.device('cuda:2')     # device for second block
 
-        # move inputs to offload device
-        x_off = x_t.to(device_off)
-        cond_off = cond_unet_out.to(device_off)
-        t_emb_off = t_emb.to(device_off)
+        # first block on device1
+        x1 = x_t.to(device1)
+        cond1 = cond_unet_out.to(device1)
+        t1 = t_emb.to(device1)
+        f1 = self.fatt1.to(device1)
+        former_output = f1(cond1, x1, t1)
 
-        # move both blocks to offload device
-        fatt1_off = self.fatt1.to(device_off)
-        fatt2_off = self.fatt2.to(device_off)
+        # second block on device2
+        x2 = x_t.to(device2)
+        cond2 = former_output.to(device2)
+        t2 = t_emb.to(device2)
+        f2 = self.fatt2.to(device2)
+        later_output = f2(x2, cond2, t2)
 
-        # first pass on off-device
-        former_off = fatt1_off(cond_off, x_off, t_emb_off)
-
-        # second pass on off-device
-        later_off = fatt2_off(x_off, former_off, t_emb_off)
-
-        # bring result back to main device
-        later_output = later_off.to(device_main)
-        return later_output
+        # return to original device
+        return later_output.to(device_main)
