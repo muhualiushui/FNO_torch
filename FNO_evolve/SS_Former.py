@@ -278,7 +278,7 @@ class ATTFNOBlock(nn.Module):
             fused output tensor (B, width, H, W)
         """
         # remember original device for cross-attn module
-        orig_device = next(self.cross_attn.parameters()).device
+        orig_device = Q_candidate.device
         # perform cross-attention on the assigned device
         Q_attn = Q_candidate.to(self.device)
         K_attn = K_candidate.to(self.device)
