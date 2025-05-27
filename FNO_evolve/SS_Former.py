@@ -176,27 +176,28 @@ class FlashCrossAttention(nn.Module):
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
-        # Mixed-precision context
         with autocast():
             # project and flatten → (B, N, C)
             q = self.to_q(Q).flatten(2).permute(0, 2, 1)
             k = self.to_k(K).flatten(2).permute(0, 2, 1)
             v = self.to_v(K).flatten(2).permute(0, 2, 1)
 
-            # memory-efficient attention using checkpoint
-            def _attn(q, k, v):
-                return F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
+            # flash-optimized attention in half precision
+            attn_out = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=None,
+                dropout_p=0.0,
+                is_causal=False,
+            )
 
-            attn_out = checkpoint.checkpoint(_attn, q, k, v)
-
-        # reshape back → (B, C, H, W) and project
+        # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
-        out = self.proj(out)
 
-        # also return Q and K in spatial form, cast back to original dtype
+        # also return Q and K in spatial form
         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
-        return out, K_sp, Q_sp
+        out = self.proj(out)
+        return Q_sp, K_sp, out
 
 class FNOBlockNd(nn.Module):
     def __init__(
