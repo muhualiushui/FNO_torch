@@ -136,6 +136,7 @@ class FNOnd(nn.Module):
             loss = self.Diffusion(yb, xb)
             # loss = self.loss_fn(self(xb), yb)
             # loss = self.loss_fnV2(self(xb), yb)
+            
             loss.backward()
             optimizer.step()
             running += loss.item() * xb.size(0)

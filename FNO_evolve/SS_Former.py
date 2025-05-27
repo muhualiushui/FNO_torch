@@ -242,9 +242,12 @@ class ATTFNOBlock(nn.Module):
         dim_head: int,
         fno_modes: List[int],
         nbf_hidden_channels: int = 64,
-        nbf_num_blocks: int = 6
+        nbf_num_blocks: int = 6,
+        device: str = 'cuda:0'
     ):
         super().__init__()
+        # record assigned device for cross-attention
+        self.device = torch.device(device)
         # Enforce that heads * dim_head matches model width for consistency
         assert heads * dim_head == width, "heads * dim_head must equal width for consistent channel size"
         # cross-attention module
@@ -274,8 +277,16 @@ class ATTFNOBlock(nn.Module):
         Returns:
             fused output tensor (B, width, H, W)
         """
-        # cross-attention to get attended out, and spatial Q/K
-        attn_out, K_spatial, Q_spatial = self.cross_attn(Q_candidate, K_candidate)
+        # remember original device for cross-attn module
+        orig_device = next(self.cross_attn.parameters()).device
+        # perform cross-attention on the assigned device
+        Q_attn = Q_candidate.to(self.device)
+        K_attn = K_candidate.to(self.device)
+        attn_out, K_spatial, Q_spatial = self.cross_attn(Q_attn, K_attn)
+        # move attention outputs back to the original device for further computation
+        attn_out = attn_out.to(orig_device)
+        K_spatial = K_spatial.to(orig_device)
+        Q_spatial = Q_spatial.to(orig_device)
 
         # process Q and K through FNO block
         fno_out = self.fno_block(Q_spatial, K_spatial, t_emb)  # (B, width, H, W)
@@ -307,7 +318,8 @@ class SS_Former(nn.Module):
             dim_head=dim_head,
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
-            nbf_num_blocks=nbf_num_blocks
+            nbf_num_blocks=nbf_num_blocks,
+            device='cuda:1'
         )
         # second fusion block: diffusion then former output
         self.fatt2 = ATTFNOBlock(
@@ -317,6 +329,7 @@ class SS_Former(nn.Module):
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
             nbf_num_blocks=nbf_num_blocks
+            device='cuda:2'
         )
 
     def forward(
@@ -333,24 +346,8 @@ class SS_Former(nn.Module):
         Returns:
             output tensor, shape (B, width, H, W)
         """
-        # determine devices
-        device_main = x_t.device             # original input device
-        device1 = torch.device('cuda:1')     # device for first block
-        device2 = torch.device('cuda:2')     # device for second block
-
-        # first block on device1
-        x1 = x_t.to(device1)
-        cond1 = cond_unet_out.to(device1)
-        t1 = t_emb.to(device1)
-        f1 = self.fatt1.to(device1)
-        former_output = f1(cond1, x1, t1)
-
-        # second block on device2
-        x2 = x_t.to(device2)
-        cond2 = former_output.to(device2)
-        t2 = t_emb.to(device2)
-        f2 = self.fatt2.to(device2)
-        later_output = f2(x2, cond2, t2)
-
-        # return to original device
-        return later_output.to(device_main)
+        # first pass: condition as Q, diffusion as K
+        former_output = self.fatt1(cond_unet_out, x_t, t_emb)
+        # second pass: diffusion as Q, former_output as K
+        later_output = self.fatt2(x_t, former_output, t_emb)
+        return later_output
