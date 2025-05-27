@@ -252,7 +252,7 @@ class ATTFNOBlock(nn.Module):
         assert heads * dim_head == width, "heads * dim_head must equal width for consistent channel size"
         # cross-attention module
         # self.cross_attn = CrossAttention(dim=width, heads=heads, dim_head=dim_head)
-        self.cross_attn = FlashCrossAttention(width).to(self.device)
+        self.cross_attn = FlashCrossAttention(width)
         # FNO block input/output channels equal to width for consistency
         self.fno_block = FNOBlockNd(
             in_c=width,
@@ -279,11 +279,10 @@ class ATTFNOBlock(nn.Module):
         """
         # remember original device for cross-attn module
         orig_device = Q_candidate.device
-        print(Q_candidate.device)
-        print(self.device)
         # perform cross-attention on the assigned device
         Q_attn = Q_candidate.to(self.device)
         K_attn = K_candidate.to(self.device)
+        self.cross_attn.to(self.device)
         attn_out, K_spatial, Q_spatial = self.cross_attn(Q_attn, K_attn)
         # move attention outputs back to the original device for further computation
         attn_out = attn_out.to(orig_device)
