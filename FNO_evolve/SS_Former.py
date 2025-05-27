@@ -149,14 +149,11 @@ class FlashCrossAttention(nn.Module):
 
         # flash-optimized attention in half precision
         attn_out = F.scaled_dot_product_attention(
-            q.half(), k.half(), v.half(),
+            q, k, v,
             attn_mask=None,
             dropout_p=0.1,
             is_causal=False,
         )
-
-        # convert attention output back to original precision
-        attn_out = attn_out.to(q.dtype)  # back to float32 or original dtype
 
         # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
