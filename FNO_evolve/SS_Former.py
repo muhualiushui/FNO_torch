@@ -146,14 +146,10 @@ class FlashCrossAttention(nn.Module):
         k = self.to_k(K).flatten(2).permute(0, 2, 1)
         v = self.to_v(K).flatten(2).permute(0, 2, 1)
 
-        # convert to half precision for attention
-        q_half = q.half()
-        k_half = k.half()
-        v_half = v.half()
 
         # flash-optimized attention in half precision
         attn_out = F.scaled_dot_product_attention(
-            q_half, k_half, v_half,
+            q.half(), k.half(), v.half(),
             attn_mask=None,
             dropout_p=0.1,
             is_causal=False,
