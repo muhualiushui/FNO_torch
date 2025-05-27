@@ -288,6 +288,12 @@ class ATTFNOBlock(nn.Module):
         fno_out = self.fno_block(Q_spatial, K_spatial, t_emb)  # (B, width, H, W)
 
         # element-wise fuse with attention output
+
+        # upsample attention output back to original resolution
+        orig_H = Q_candidate.shape[-2] * times
+        orig_W = Q_candidate.shape[-1] * times
+        attn_out = F.interpolate(attn_out, size=(orig_H, orig_W), mode='bilinear', align_corners=False)
+
         fused = fno_out * attn_out
         return fused
 
