@@ -197,7 +197,7 @@ class FlashCrossAttention(nn.Module):
         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
         out = self.proj(out.to(torch.float32))
-        return Q_sp, K_sp, out
+        return Q_sp.to(torch.float32), K_sp.to(torch.float32), out
 
 class FNOBlockNd(nn.Module):
     def __init__(
