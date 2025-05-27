@@ -282,6 +282,11 @@ class ATTFNOBlock(nn.Module):
             fused output tensor (B, width, H, W)
         """
         # cross-attention to get attended out, and spatial Q/K
+        B, C, H, W = Q_candidate.shape
+        new_H, new_W = H // times, W // times
+        Q_candidate = F.interpolate(Q_candidate, size=(new_H, new_W), mode='bilinear', align_corners=False)
+        K_candidate = F.interpolate(K_candidate, size=(new_H, new_W), mode='bilinear', align_corners=False)
+        
         attn_out, K_spatial, Q_spatial = self.cross_attn(Q_candidate, K_candidate)
 
         # process Q and K through FNO block
