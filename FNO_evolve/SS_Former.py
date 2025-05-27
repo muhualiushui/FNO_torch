@@ -348,14 +348,15 @@ class SS_Former(nn.Module):
         cond1 = cond_unet_out.to(device1)
         x1 = x_t.to(device1)
         t_emb1 = t_emb.to(device1)
+        self.fatt1.to(device1)
         former_output = self.fatt1(cond1, x1, t_emb1)
-        former_output = former_output.to(orig_device)
 
         # second pass on device 2
         device2 = torch.device('cuda:2')
         x2 = x_t.to(device2)
         former2 = former_output.to(device2)
         t_emb2 = t_emb.to(device2)
+        self.fatt2.to(device2)
         later_output = self.fatt2(x2, former2, t_emb2)
         later_output = later_output.to(orig_device)
 
