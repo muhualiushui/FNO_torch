@@ -118,8 +118,8 @@ class FNOnd(nn.Module):
             if isinstance(batch, dict):
                 if x_name is None or y_name is None:
                     raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
-                xb = batch[x_name].to(device)
-                yb = batch[y_name].to(device)
+                xb = batch[x_name].half().to(device)
+                yb = batch[y_name].half().to(device)
             elif isinstance(batch, (list, tuple)):
                 xb = batch[0].to(device)
                 yb = batch[1].to(device)
@@ -154,8 +154,8 @@ class FNOnd(nn.Module):
                 if isinstance(batch, dict):
                     if x_name is None or y_name is None:
                         raise ValueError("When batches are dictionaries, x_name and y_name must be provided.")
-                    xb = batch[x_name].to(device)
-                    yb = batch[y_name].to(device)
+                    xb = batch[x_name].half().to(device)
+                    yb = batch[y_name].half().to(device)
                 elif isinstance(batch, (list, tuple)):
                     xb = batch[0].to(device)
                     yb = batch[1].to(device)
