@@ -151,7 +151,7 @@ class FlashCrossAttention(nn.Module):
         attn_out = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=None,
-            dropout_p=0.1,
+            dropout_p=0.0,
             is_causal=False,
         )
 
