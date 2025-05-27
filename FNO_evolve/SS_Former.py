@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Callable, List
+import torch.utils.checkpoint as checkpoint
+from torch.cuda.amp import autocast
 
 class NBPFilter(nn.Module):
     def __init__(
@@ -163,7 +165,37 @@ class FlashCrossAttention(nn.Module):
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
         return Q_sp, K_sp, self.proj(out)
 
+class FlashCrossAttention(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.to_q = nn.Conv2d(channels, channels, 1, bias=False)
+        self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
+        self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
+        self.proj = nn.Conv2d(channels, channels, 1)
 
+    def forward(self, Q, K):
+        B, C, H, W = Q.shape
+        # Mixed-precision context
+        with autocast():
+            # project and flatten → (B, N, C)
+            q = self.to_q(Q).half().flatten(2).permute(0, 2, 1)
+            k = self.to_k(K).half().flatten(2).permute(0, 2, 1)
+            v = self.to_v(K).half().flatten(2).permute(0, 2, 1)
+
+            # memory-efficient attention using checkpoint
+            def _attn(q, k, v):
+                return F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
+
+            attn_out = checkpoint.checkpoint(_attn, q, k, v)
+
+        # reshape back → (B, C, H, W) and project
+        out = attn_out.permute(0, 2, 1).view(B, C, H, W)
+        out = self.proj(out).to(Q.dtype)
+
+        # also return Q and K in spatial form, cast back to original dtype
+        Q_sp = q.permute(0, 2, 1).view(B, C, H, W).to(Q.dtype)
+        K_sp = k.permute(0, 2, 1).view(B, C, H, W).to(Q.dtype)
+        return out, K_sp, Q_sp
 
 class FNOBlockNd(nn.Module):
     def __init__(
@@ -334,6 +366,7 @@ class SS_Former(nn.Module):
             output tensor, shape (B, width, H, W)
         """
         # remember original device
+        
         orig_device = x_t.device
 
         # first pass on device 1
