@@ -328,7 +328,7 @@ class SS_Former(nn.Module):
             dim_head=dim_head,
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
-            nbf_num_blocks=nbf_num_blocks
+            nbf_num_blocks=nbf_num_blocks,
             device='cuda:2'
         )
 
