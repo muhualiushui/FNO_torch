@@ -5,6 +5,9 @@ from typing import Callable, List
 import torch.utils.checkpoint as checkpoint
 from torch.cuda.amp import autocast
 
+
+times = 2  # downsampling factor for inputs in SS_Former
+
 class NBPFilter(nn.Module):
     def __init__(
         self,
@@ -134,38 +137,6 @@ class NBPFilter(nn.Module):
 #         K_spatial = K.permute(0, 2, 1).view(B, C, H, W)
 #         return out, K_spatial, Q_spatial
 
-# class FlashCrossAttention(nn.Module):
-#     def __init__(self, channels):
-#         super().__init__()
-#         self.to_q = nn.Conv2d(channels, channels, 1, bias=False)
-#         self.to_k = nn.Conv2d(channels, channels, 1, bias=False)
-#         self.to_v = nn.Conv2d(channels, channels, 1, bias=False)
-#         self.proj = nn.Conv2d(channels, channels, 1)
-
-#     def forward(self, Q, K):
-#         B, C, H, W = Q.shape
-#         # project and flatten → (B, N, C)
-#         q = self.to_q(Q).flatten(2).permute(0, 2, 1)
-#         k = self.to_k(K).flatten(2).permute(0, 2, 1)
-#         v = self.to_v(K).flatten(2).permute(0, 2, 1)
-
-
-#         # flash-optimized attention in half precision
-#         attn_out = F.scaled_dot_product_attention(
-#             q, k, v,
-#             attn_mask=None,
-#             dropout_p=0.0,
-#             is_causal=False,
-#         )
-
-#         # reshape back → (B, C, H, W)
-#         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
-
-#         # also return Q and K in spatial form
-#         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
-#         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
-#         return Q_sp, K_sp, self.proj(out)
-
 class FlashCrossAttention(nn.Module):
     def __init__(self, channels):
         super().__init__()
@@ -176,19 +147,19 @@ class FlashCrossAttention(nn.Module):
 
     def forward(self, Q, K):
         B, C, H, W = Q.shape
-        with autocast():
-            # project and flatten → (B, N, C)
-            q = self.to_q(Q).flatten(2).permute(0, 2, 1)
-            k = self.to_k(K).flatten(2).permute(0, 2, 1)
-            v = self.to_v(K).flatten(2).permute(0, 2, 1)
+        # project and flatten → (B, N, C)
+        q = self.to_q(Q).flatten(2).permute(0, 2, 1)
+        k = self.to_k(K).flatten(2).permute(0, 2, 1)
+        v = self.to_v(K).flatten(2).permute(0, 2, 1)
 
-            # flash-optimized attention in half precision
-            attn_out = F.scaled_dot_product_attention(
-                q, k, v,
-                attn_mask=None,
-                dropout_p=0.0,
-                is_causal=False,
-            )
+
+        # flash-optimized attention in half precision
+        attn_out = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=None,
+            dropout_p=0.0,
+            is_causal=False,
+        )
 
         # reshape back → (B, C, H, W)
         out = attn_out.permute(0, 2, 1).view(B, C, H, W)
@@ -196,8 +167,8 @@ class FlashCrossAttention(nn.Module):
         # also return Q and K in spatial form
         Q_sp = q.permute(0, 2, 1).view(B, C, H, W)
         K_sp = k.permute(0, 2, 1).view(B, C, H, W)
-        out = self.proj(out.to(torch.float32))
-        return Q_sp.to(torch.float32), K_sp.to(torch.float32), out
+        return Q_sp, K_sp, self.proj(out)
+
 
 class FNOBlockNd(nn.Module):
     def __init__(
@@ -249,7 +220,7 @@ class FNOBlockNd(nn.Module):
         out2_fft = torch.einsum(eq, x2_fft, self.weight)
 
         # 3) inverse FFT back to spatial for both
-        spatial = x1.shape[-self.ndim:]
+        spatial = x1.shape[-self.ndim:]* times
         x1_spec = torch.fft.irfftn(out1_fft, s=spatial, dim=dims, norm='ortho')
         x2_spec = torch.fft.irfftn(out2_fft, s=spatial, dim=dims, norm='ortho')
 
@@ -357,7 +328,7 @@ class SS_Former(nn.Module):
         self,
         x_t: torch.Tensor,
         cond_unet_out: torch.Tensor,
-        t_emb: torch.Tensor
+        t_emb: torch.Tensor,
     ) -> torch.Tensor:
         """
         Args:
@@ -367,7 +338,11 @@ class SS_Former(nn.Module):
         Returns:
             output tensor, shape (B, width, H, W)
         """
-        # remember original device
+        # downsample inputs by factor 'times'
+        B, C, H, W = x_t.shape
+        new_H, new_W = H // times, W // times
+        x_t = F.interpolate(x_t, size=(new_H, new_W), mode='bilinear', align_corners=False)
+        cond_unet_out = F.interpolate(cond_unet_out, size=(new_H, new_W), mode='bilinear', align_corners=False)
         
         orig_device = x_t.device
 
