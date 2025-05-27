@@ -347,10 +347,6 @@ class SS_Former(nn.Module):
             output tensor, shape (B, width, H, W)
         """
         # downsample inputs by factor 'times'
-        B, C, H, W = x_t.shape
-        new_H, new_W = H // times, W // times
-        x_t = F.interpolate(x_t, size=(new_H, new_W), mode='bilinear', align_corners=False)
-        cond_unet_out = F.interpolate(cond_unet_out, size=(new_H, new_W), mode='bilinear', align_corners=False)
         
         orig_device = x_t.device
 
