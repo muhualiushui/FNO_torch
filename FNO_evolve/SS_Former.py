@@ -219,10 +219,12 @@ class FNOBlockNd(nn.Module):
         x2_fft = x2_fft[tuple(slices)]
         out2_fft = torch.einsum(eq, x2_fft, self.weight)
 
-        # 3) inverse FFT back to spatial for both
-        spatial = x1.shape[-self.ndim:]* times
-        x1_spec = torch.fft.irfftn(out1_fft, s=spatial, dim=dims*times, norm='ortho')
-        x2_spec = torch.fft.irfftn(out2_fft, s=spatial, dim=dims*times, norm='ortho')
+        # 3) inverse FFT back to upsampled spatial for both
+        # compute original spatial dimensions before downsampling
+        spatial_down = x1.shape[-self.ndim:]
+        spatial_orig = tuple(dim * times for dim in spatial_down)
+        x1_spec = torch.fft.irfftn(out1_fft, s=spatial_orig, dim=dims, norm='ortho')
+        x2_spec = torch.fft.irfftn(out2_fft, s=spatial_orig, dim=dims, norm='ortho')
 
         # 4) combine via element-wise product
         x_combined = x1_spec * x2_spec
