@@ -221,8 +221,8 @@ class FNOBlockNd(nn.Module):
 
         # 3) inverse FFT back to spatial for both
         spatial = x1.shape[-self.ndim:]* times
-        x1_spec = torch.fft.irfftn(out1_fft, s=spatial, dim=dims, norm='ortho')
-        x2_spec = torch.fft.irfftn(out2_fft, s=spatial, dim=dims, norm='ortho')
+        x1_spec = torch.fft.irfftn(out1_fft, s=spatial, dim=dims*times, norm='ortho')
+        x2_spec = torch.fft.irfftn(out2_fft, s=spatial, dim=dims*times, norm='ortho')
 
         # 4) combine via element-wise product
         x_combined = x1_spec * x2_spec
