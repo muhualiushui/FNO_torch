@@ -104,7 +104,7 @@ class FNOBlockNd_NBF(nn.Module):
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.bypass = ConvNd(in_c, out_c, kernel_size=1)
         self.act = activation
-        self.nbf_filter = NBPFilter(in_c, in_c, out_c, modes[0] // 4)
+        self.nbp_filter = NBPFilter(in_c, in_c, out_c, modes[0] // 4)
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         # x: (B, C, *spatial)
