@@ -6,6 +6,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
+# from Brats.module.medseg import MedSegDiff
+from FNO_torch.Diffusion.diffusion_basic import Diffusion
+import math
 
 class DiceCELoss(nn.Module):
     def __init__(self, ce_weight: float = 0.5, smooth: float = 1e-5):
@@ -73,6 +76,32 @@ class FNOBlockNd(nn.Module):
         # combine spectral + bypass
         return self.act(x_spec + self.bypass(x))
 
+class FNO4Denoiser(nn.Module):
+    def __init__(self,in_c:int, out_c:int, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
+                 get_timestep_embedding: Callable, time_mlp: nn.Module):
+        super().__init__()
+
+        self.lift = lift
+        self.assemblies = assemblies
+        self.proj = proj
+        self.get_timestep_embedding = get_timestep_embedding
+        self.time_mlp = time_mlp
+
+    def forward(self, x, t, image):
+        # exactly the same logic you had in FNOnd.forward
+        x = torch.cat([x, image], dim=1)
+        t_emb = self.get_timestep_embedding(t)  
+        t_emb = self.time_mlp(t_emb)
+        x0 = self.lift(x)
+        x0 = x0 + t_emb[..., None, None]
+        outputs = []
+        for assembly in self.assemblies:
+            xb = x0
+            for blk in assembly:
+                xb = blk(xb)
+            outputs.append(self.proj(xb))
+        return torch.cat(outputs, dim=1)
+
 
 class FNOnd(nn.Module):
     """
@@ -98,20 +127,47 @@ class FNOnd(nn.Module):
             for _ in range(out_c)
         ])
         self.proj = ConvNd(width, 1, kernel_size=1)
-        self.loss_fn = nn.BCEWithLogitsLoss()
+        self.loss_fn = nn.MSELoss()
         self.loss_fnV2 = DiceCELoss()
         self.out_c = out_c
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x0 = self.lift(x)
-        outputs = []
-        for assembly in self.assemblies:
-            x_branch = x0
-            for blk in assembly:
-                x_branch = blk(x_branch)
-            out = self.proj(x_branch)
-            outputs.append(out)
-        return torch.cat(outputs, dim=1)
+        # time embedding modules
+        self.time_embed_dim = width
+        self.time_mlp = nn.Sequential(
+            nn.Linear(self.time_embed_dim, self.time_embed_dim),
+            nn.GELU(),
+            nn.Linear(self.time_embed_dim, self.time_embed_dim),
+        )
+
+        self.denoiser = FNO4Denoiser(
+            in_c=in_c,
+            out_c=out_c,
+            lift=self.lift,
+            assemblies=self.assemblies,
+            proj=self.proj,
+            get_timestep_embedding=self.get_timestep_embedding,
+            time_mlp=self.time_mlp
+        )
+        self.Diffusion = Diffusion(
+            self.denoiser,
+            timesteps=1000
+        )
+
+    def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
+        """
+        Create sinusoidal timestep embeddings.
+        """
+        half_dim = self.time_embed_dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=t.device, dtype=torch.float32) * -emb)
+        emb = t.float().unsqueeze(1) * emb.unsqueeze(0)
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
+        if self.time_embed_dim % 2 == 1:  # zero pad
+            emb = F.pad(emb, (0, 1))
+        return emb
+
+    def forward(self, x, t, c):
+        return self.denoiser(x, t, c)
 
     # keep the standard nn.Module.train(mode=True) behaviour
     def train(self, mode: bool = True):
@@ -144,8 +200,9 @@ class FNOnd(nn.Module):
             else:
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             optimizer.zero_grad()
+            loss = self.Diffusion(yb, xb)
             # loss = self.loss_fn(self(xb), yb)
-            loss = self.loss_fnV2(self(xb), yb)
+            # loss = self.loss_fnV2(self(xb), yb)
             loss.backward()
             optimizer.step()
             running += loss.item() * xb.size(0)
@@ -178,7 +235,8 @@ class FNOnd(nn.Module):
                     yb = batch[1].to(device)
                 else:
                     raise TypeError(f"Unsupported batch type: {type(batch)}")
-                loss = self.loss_fnV2(self(xb), yb)
+                loss = self.Diffusion(yb, xb)
+                # loss = self.loss_fnV2(self(xb), yb)
                 val_running += loss.item() * xb.size(0)
                 total += xb.size(0)
         return val_running / total

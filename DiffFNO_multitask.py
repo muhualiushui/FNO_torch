@@ -7,8 +7,8 @@ from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 import math
-from FNO_torch.Diffusion.diffusionV4 import Diffusion, ConditionModel
-from FNO_torch.FNO_evolve.SS_Former import SS_Former
+from FNO_torch.Diffusion.diffusion_meg import Diffusion, ConditionModel
+from FNO_torch.helper.SS_Former import SS_Former
 
 
 

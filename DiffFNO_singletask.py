@@ -6,78 +6,14 @@ from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-# from Brats.module.medseg import MedSegDiff
-from FNO_torch.Diffusion.diffusionV3 import Diffusion
 import math
+from FNO_torch.Diffusion.diffusion_meg import Diffusion, ConditionModel
+from FNO_torch.helper.SS_Former import SS_Former
 
-class DiceCELoss(nn.Module):
-    def __init__(self, ce_weight: float = 0.5, smooth: float = 1e-5):
-        super().__init__()
-        self.ce_weight = ce_weight
-        self.smooth = smooth
-        self.ce = nn.CrossEntropyLoss()
 
-    def dice_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        # pred: [B, C, H, W] logits; target: [B, C, H, W] one-hot
-        probs = torch.softmax(pred, dim=1)
-        intersection = torch.sum(probs * target, dim=(2, 3))
-        union = torch.sum(probs + target, dim=(2, 3))
-        dice_score = (2 * intersection + self.smooth) / (union + self.smooth)
-        return 1 - dice_score.mean()
 
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        """
-        pred: logits [B, C, H, W]
-        target: one-hot [B, C, H, W]
-        """
-        # CrossEntropyLoss expects class indices
-        target_indices = target.argmax(dim=1)  # [B, H, W]
-        ce_loss = self.ce(pred, target_indices)
-        dice = self.dice_loss(pred, target)
-        return dice + self.ce_weight * ce_loss
-
-class FNOBlockNd(nn.Module):
-    """
-    Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
-    """
-    def __init__(self, in_c: int, out_c: int, modes: List[int], activation: Callable):
-        super().__init__()
-        self.in_c, self.out_c = in_c, out_c
-        self.modes = modes
-        self.ndim = len(modes)
-        # initialize complex spectral weights
-        scale = 1.0 / (in_c * out_c)
-        w_shape = (in_c, out_c, *modes)
-        init = torch.randn(*w_shape, dtype=torch.cfloat)
-        self.weight = nn.Parameter(init * 2 * scale - scale)
-        # 1×1 convolution bypass
-        ConvNd = getattr(nn, f'Conv{self.ndim}d')
-        self.bypass = ConvNd(in_c, out_c, kernel_size=1)
-        self.act = activation
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, *spatial)
-        dims = tuple(range(-self.ndim, 0))
-        # forward FFT
-        x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
-        # trim to modes
-        slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
-        x_fft = x_fft[tuple(slices)]
-        # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('k') + i) for i in range(self.ndim)]
-        sub_in  = 'bi' + ''.join(letters)
-        sub_w   = 'io' + ''.join(letters)
-        sub_out = 'bo' + ''.join(letters)
-        eq = f"{sub_in}, {sub_w} -> {sub_out}"
-        out_fft = torch.einsum(eq, x_fft, self.weight)
-        # inverse FFT
-        spatial = x.shape[-self.ndim:]
-        x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
-        # combine spectral + bypass
-        return self.act(x_spec + self.bypass(x))
-
-class FNO4Denoiser(nn.Module):
-    def __init__(self,in_c:int, out_c:int, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
+class Denoiser(nn.Module):
+    def __init__(self, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module,
                  get_timestep_embedding: Callable, time_mlp: nn.Module):
         super().__init__()
 
@@ -87,20 +23,14 @@ class FNO4Denoiser(nn.Module):
         self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
-    def forward(self, x, t, image):
+    def forward(self,x_t, cond_unet_out, t):
         # exactly the same logic you had in FNOnd.forward
-        x = torch.cat([x, image], dim=1)
         t_emb = self.get_timestep_embedding(t)  
         t_emb = self.time_mlp(t_emb)
-        x0 = self.lift(x)
-        x0 = x0 + t_emb[..., None, None]
-        outputs = []
+        diff_t, cond_t = self.lift(x_t), cond_unet_out
         for assembly in self.assemblies:
-            xb = x0
-            for blk in assembly:
-                xb = blk(xb)
-            outputs.append(self.proj(xb))
-        return torch.cat(outputs, dim=1)
+            cond_t = assembly(diff_t, cond_t, t_emb)
+        return self.proj(cond_t)
 
 
 class FNOnd(nn.Module):
@@ -113,22 +43,17 @@ class FNOnd(nn.Module):
                  out_c: int,
                  modes: List[int],
                  width: int,
-                 activation: Callable,
                  n_blocks: int = 4):
         super().__init__()
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.assemblies = nn.ModuleList([
-            nn.ModuleList([
-                FNOBlockNd(width, width, modes, activation)
-                for _ in range(n_blocks)
-            ])
-            for _ in range(out_c)
+            SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=32)
+            for _ in range(n_blocks)
         ])
-        self.proj = ConvNd(width, 1, kernel_size=1)
+        self.proj = ConvNd(width, out_c, kernel_size=1)
         self.loss_fn = nn.MSELoss()
-        self.loss_fnV2 = DiceCELoss()
         self.out_c = out_c
 
         # time embedding modules
@@ -139,17 +64,18 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-        self.denoiser = FNO4Denoiser(
-            in_c=in_c,
-            out_c=out_c,
+        self.denoiser = Denoiser(
             lift=self.lift,
             assemblies=self.assemblies,
             proj=self.proj,
             get_timestep_embedding=self.get_timestep_embedding,
             time_mlp=self.time_mlp
         )
+        self.cond_model = ConditionModel(in_c, out_c, width//2)
+
         self.Diffusion = Diffusion(
             self.denoiser,
+            self.cond_model,
             timesteps=1000
         )
 
