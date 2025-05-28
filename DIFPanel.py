@@ -75,8 +75,6 @@ class FNOnd(nn.Module):
         )
 
         self.denoiser = FNO4Denoiser(
-            in_c=in_c,
-            out_c=out_c,
             lift=self.lift,
             assemblies=self.assemblies,
             proj=self.proj,
