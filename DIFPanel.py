@@ -20,13 +20,13 @@ class FNO4Denoiser(nn.Module):
         self.lift = lift
         self.assemblies = assemblies
         self.proj = proj
-        self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
     def forward(self, x, t, image):
         # exactly the same logic you had in FNOnd.forward
         x = torch.cat([x, image], dim=1)
-        t_emb = self.get_timestep_embedding(t)  
+        width = x.shape[1]
+        t_emb = get_timestep_embedding(width, t)  
         t_emb = self.time_mlp(t_emb)
         x0 = self.lift(x)
         outputs = []

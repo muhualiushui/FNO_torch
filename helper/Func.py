@@ -5,16 +5,16 @@ import torch.nn.functional as F
 import math
 from typing import Callable, List
 
-def get_timestep_embedding(self, t: torch.Tensor) -> torch.Tensor:
+def get_timestep_embedding(time_embed_dim: int, t: torch.Tensor) -> torch.Tensor:
     """
-    Create sinusoidal timestep embeddings.
+    Create sinusoidal timestep embeddings. d d
     """
-    half_dim = self.time_embed_dim // 2
+    half_dim = time_embed_dim // 2
     emb = math.log(10000) / (half_dim - 1)
     emb = torch.exp(torch.arange(half_dim, device=t.device, dtype=torch.float32) * -emb)
     emb = t.float().unsqueeze(1) * emb.unsqueeze(0)
     emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
-    if self.time_embed_dim % 2 == 1:  # zero pad
+    if time_embed_dim % 2 == 1:  # zero pad
         emb = F.pad(emb, (0, 1))
     return emb
 
