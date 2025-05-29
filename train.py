@@ -27,7 +27,8 @@ def train_epoch(model: nn.Module,
         else:
             raise TypeError(f"Unsupported batch type: {type(batch)}")
         optimizer.zero_grad()
-        loss = model.Diffusion(yb, xb)
+        base_model = model.module if isinstance(model, nn.DataParallel) else model
+        loss = base_model.Diffusion(yb, xb)
         loss.backward()
         optimizer.step()
         running += loss.item() * xb.size(0)
@@ -56,7 +57,8 @@ def valid_epoch(model: nn.Module,
                 yb = batch[1].to(device)
             else:
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
-            loss = model.Diffusion(yb, xb)
+            base_model = model.module if isinstance(model, nn.DataParallel) else model
+            loss = base_model.Diffusion(yb, xb)
             val_running += loss.item() * xb.size(0)
             total += xb.size(0)
     return val_running / total
