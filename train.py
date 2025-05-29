@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
+from accelerate import Accelerator
+accelerator = Accelerator()
 
 def train_epoch(model: nn.Module,
                 train_loader: DataLoader,
@@ -29,7 +31,7 @@ def train_epoch(model: nn.Module,
         optimizer.zero_grad()
         base_model = model.module if isinstance(model, nn.DataParallel) else model
         loss = base_model.Diffusion(yb, xb)
-        loss.backward()
+        accelerator.backward(loss)
         optimizer.step()
         running += loss.item() * xb.size(0)
         total += xb.size(0)
@@ -71,7 +73,11 @@ def train_model(model: nn.Module,
                 device: torch.device,
                 x_name: str = None,
                 y_name: str = None) -> dict:
-    model.to(device)
+    # Prepare model, optimizer, and data loaders for multi-GPU
+    model, optimizer, train_loader, test_loader = accelerator.prepare(
+        model, optimizer, train_loader, test_loader
+    )
+    device = accelerator.device
     history = {'train_loss': [], 'val_loss': []}
     pbar = tqdm(range(epochs), desc='Epoch', unit='epoch', leave=True, dynamic_ncols=True, position=0)
     for epoch in pbar:
