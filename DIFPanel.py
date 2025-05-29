@@ -10,7 +10,6 @@ from tqdm.auto import tqdm
 from FNO_torch.Diffusion.diffusion_basic import Diffusion
 from FNO_torch.helper.SS_Former import NBPFilter
 from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, FNOBlockNd_NBF, get_timestep_embedding
-import math
 
 
 class FNO4Denoiser(nn.Module):
@@ -88,24 +87,3 @@ class FNOnd(nn.Module):
 
     def forward(self, image):
         return self.Diffusion.Inference(image)
-
-    # keep the standard nn.Module.train(mode=True) behaviour
-    def train(self, mode: bool = True):
-        return super().train(mode)
-
-    def plot_loss(self, history: dict, save_path: str = None):
-        """
-        Plot training and validation loss curves.
-        """
-        plt.figure(figsize=(10, 5))
-        plt.plot(history['train_loss'], label='Train Loss')
-        plt.plot(history['val_loss'], label='Validation Loss')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title('Training vs Validation Loss')
-        plt.legend()
-        if save_path:
-            plt.savefig(save_path)
-        else:
-            plt.show()
-        plt.close()
