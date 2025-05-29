@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 # from Brats.module.medseg import MedSegDiff
 from FNO_torch.Diffusion.diffusion_basic import Diffusion
-import math
+from FNO_torch.helper.SS_Former import NBPFilter
 from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, FNOBlockNd_NBF, get_timestep_embedding
 
 
@@ -19,15 +19,15 @@ class FNO4Denoiser(nn.Module):
         self.lift = lift
         self.assemblies = assemblies
         self.proj = proj
-        self.get_timestep_embedding = get_timestep_embedding
         self.time_mlp = time_mlp
 
     def forward(self, x, t, image):
         # exactly the same logic you had in FNOnd.forward
         x = torch.cat([x, image], dim=1)
-        t_emb = self.get_timestep_embedding(t)  
-        t_emb = self.time_mlp(t_emb)
         x0 = self.lift(x)
+        width = x0.shape[1]
+        t_emb = get_timestep_embedding(width, t)  
+        t_emb = self.time_mlp(t_emb)
         outputs = []
         for assembly in self.assemblies:
             xb = x0
@@ -55,7 +55,7 @@ class FNOnd(nn.Module):
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.assemblies = nn.ModuleList([
             nn.ModuleList([
-                FNOBlockNd(width, width, modes, activation)
+                FNOBlockNd_NBF(width, width, modes, activation)
                 for _ in range(n_blocks)
             ])
             for _ in range(out_c)
@@ -85,5 +85,5 @@ class FNOnd(nn.Module):
         )
 
 
-    def forward(self, x, t, c):
-        return self.denoiser(x, t, c)
+    def forward(self, image):
+        return self.Diffusion.Inference(image)
