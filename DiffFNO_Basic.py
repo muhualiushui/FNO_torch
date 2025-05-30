@@ -88,5 +88,5 @@ class FNOnd(nn.Module):
     def forward(self, image):
         return self.Diffusion.Inference(image)
     
-    def cal_loss(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        return self.Diffusion.cal_loss(x, y)
+    def cal_loss(self, x0: torch.Tensor,  image: torch.Tensor,) -> torch.Tensor:
+        return self.Diffusion.cal_loss(x0, image)
