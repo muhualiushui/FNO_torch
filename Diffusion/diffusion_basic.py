@@ -61,8 +61,8 @@ class Diffusion(nn.Module):
 
         pred_x0 = self.pred_x0(x_t, t, pred_noise)
 
-        return self.loss_fn(noise, pred_noise)*self.loss_ratio + self.dice_loss(pred_x0, x0)*(1-self.loss_ratio)
-
+        return pred_noise, pred_x0, noise
+    
     def noise(self, x0, t):
         """
         Adds noise to x0 at time step(s) t.
@@ -117,3 +117,7 @@ class Diffusion(nn.Module):
             t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.long)
             x = self.Denoise(x, t_tensor, image)
         return x
+    
+    def cal_loss(self, x0: torch.Tensor,  image: torch.Tensor,) -> torch.Tensor:
+        pred_noise, pred_x0, noise = self.forward(x0,image)
+        return self.loss_fn(noise, pred_noise)*self.loss_ratio + self.dice_loss(pred_x0, x0)*(1-self.loss_ratio)
