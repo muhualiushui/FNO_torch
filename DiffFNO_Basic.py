@@ -13,11 +13,11 @@ from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, FNOBlockNd_NBF, get_ti
 
 
 class FNO4Denoiser(nn.Module):
-    def __init__(self, lift: nn.Module, assemblies: nn.ModuleList, proj: nn.Module, time_mlp: nn.Module):
+    def __init__(self, lift: nn.Module, blocks: nn.ModuleList, proj: nn.Module, time_mlp: nn.Module):
         super().__init__()
 
         self.lift = lift
-        self.assemblies = assemblies
+        self.blocks = blocks
         self.proj = proj
         self.time_mlp = time_mlp
 
@@ -69,7 +69,7 @@ class FNOnd(nn.Module):
 
         self.denoiser = FNO4Denoiser(
             lift=self.lift,
-            assemblies=self.assemblies,
+            blocks=self.blocks,
             proj=self.proj,
             time_mlp=self.time_mlp
         )
