@@ -30,7 +30,7 @@ def train_epoch(model: nn.Module,
             raise TypeError(f"Unsupported batch type: {type(batch)}")
         optimizer.zero_grad()
         base_model = model.module if isinstance(model, nn.DataParallel) else model
-        loss = base_model.cal_loss(yb, xb)
+        loss = base_model.cal_loss(xb, yb)
         accelerator.backward(loss)
         optimizer.step()
         running += loss.item() * xb.size(0)
