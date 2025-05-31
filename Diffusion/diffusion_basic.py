@@ -118,6 +118,6 @@ class Diffusion(nn.Module):
             x = self.Denoise(x, t_tensor, image)
         return x
     
-    def cal_loss(self, x0: torch.Tensor,  image: torch.Tensor,) -> torch.Tensor:
+    def cal_loss(self, image: torch.Tensor, x0: torch.Tensor) -> torch.Tensor:
         pred_noise, pred_x0, noise = self.forward(x0,image)
         return self.loss_fn(noise, pred_noise)*self.loss_ratio + self.dice_loss(pred_x0, x0)*(1-self.loss_ratio)

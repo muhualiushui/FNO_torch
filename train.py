@@ -60,7 +60,7 @@ def valid_epoch(model: nn.Module,
             else:
                 raise TypeError(f"Unsupported batch type: {type(batch)}")
             base_model = model.module if isinstance(model, nn.DataParallel) else model
-            loss = base_model.cal_loss(yb, xb)
+            loss = base_model.cal_loss(xb, yb)
             val_running += loss.item() * xb.size(0)
             total += xb.size(0)
     return val_running / total
