@@ -28,13 +28,10 @@ class FNO4Denoiser(nn.Module):
         width = x0.shape[1]
         t_emb = get_timestep_embedding(width, t)  
         t_emb = self.time_mlp(t_emb)
-        outputs = []
-        for assembly in self.assemblies:
-            xb = x0
-            for blk in assembly:
-                xb = blk(xb, t_emb)
-            outputs.append(self.proj(xb))
-        return torch.cat(outputs, dim=1)
+        x_branch = x0
+        for blk in self.blocks:
+            x_branch = blk(x_branch, t_emb)
+        return self.proj(x_branch)
 
 
 class FNOnd(nn.Module):
@@ -53,14 +50,11 @@ class FNOnd(nn.Module):
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
-        self.assemblies = nn.ModuleList([
-            nn.ModuleList([
-                FNOBlockNd_NBF(width, width, modes, activation)
-                for _ in range(n_blocks)
-            ])
-            for _ in range(out_c)
+        self.blocks = nn.ModuleList([
+            FNOBlockNd_NBF(width, width, modes, activation)
+            for _ in range(n_blocks)
         ])
-        self.proj = ConvNd(width, 1, kernel_size=1)
+        self.proj = ConvNd(width, out_c, kernel_size=1)
         self.loss_fn = nn.MSELoss()
         self.loss_fnV2 = DiceCELoss()
         self.out_c = out_c
