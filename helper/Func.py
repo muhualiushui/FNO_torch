@@ -65,7 +65,7 @@ class FNOBlockNd(nn.Module):
         self.bypass = ConvNd(in_c, out_c, kernel_size=1)
         self.act = activation
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         # x: (B, C, *spatial)
         dims = tuple(range(-self.ndim, 0))
         # forward FFT
@@ -84,6 +84,8 @@ class FNOBlockNd(nn.Module):
         spatial = x.shape[-self.ndim:]
         x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
         # combine spectral + bypass
+        if t_emb is not None:
+            x_spec = x_spec + t_emb.unsqueeze(-1).unsqueeze(-1)
         return self.act(x_spec + self.bypass(x))
     
 class FNOBlockNd_NBF(nn.Module):
