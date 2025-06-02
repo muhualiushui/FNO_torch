@@ -18,14 +18,13 @@ class FNOnd(nn.Module):
                  modes: List[int],
                  width: int,
                  n_blocks: int = 4,
-                 activation: Callable = nn.GELU(),
-                 is_filter: bool = False):
+                 activation: Callable = nn.GELU()):
         super().__init__()
         ConvNd = getattr(nn, f'Conv{len(modes)}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
         # Shared blocks for all channels
         self.blocks = nn.ModuleList([
-            FNOBlockNd(width, width, modes, activation, is_filter)
+            FNOBlockNd(width, width, modes, activation)
             for _ in range(n_blocks)
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)

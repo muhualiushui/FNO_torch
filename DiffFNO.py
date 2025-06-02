@@ -12,28 +12,6 @@ from FNO_torch.helper.SS_Former import NBPFilter
 from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, get_timestep_embedding
 
 
-class FNO4Denoiser(nn.Module):
-    def __init__(self, lift: nn.Module, blocks: nn.ModuleList, proj: nn.Module, time_mlp: nn.Module):
-        super().__init__()
-
-        self.lift = lift
-        self.blocks = blocks
-        self.proj = proj
-        self.time_mlp = time_mlp
-
-    def forward(self, x, t, image):
-        # exactly the same logic you had in FNOnd.forward
-        x = torch.cat([x, image], dim=1)
-        x0 = self.lift(x)
-        width = x0.shape[1]
-        t_emb = get_timestep_embedding(width, t)  
-        t_emb = self.time_mlp(t_emb)
-        x_branch = x0
-        for blk in self.blocks:
-            x_branch = blk(x_branch, t_emb)
-        return self.proj(x_branch)
-
-
 class FNOnd(nn.Module):
     """
     N-dimensional FNO model.
@@ -51,7 +29,7 @@ class FNOnd(nn.Module):
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.blocks = nn.ModuleList([
-            FNOBlockNd_NBF(width, width, modes, activation)
+            FNOBlockNd(width, width, modes, activation)
             for _ in range(n_blocks)
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)
@@ -67,20 +45,17 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-        self.denoiser = FNO4Denoiser(
-            lift=self.lift,
-            blocks=self.blocks,
-            proj=self.proj,
-            time_mlp=self.time_mlp
-        )
-        self.Diffusion = Diffusion(
-            self.denoiser,
-            timesteps=1000
-        )
-
-
-    def forward(self, image):
-        return self.Diffusion.Inference(image)
+    def forward(self, x, t, image):
+        # exactly the same logic you had in FNOnd.forward
+        x = torch.cat([x, image], dim=1)
+        x0 = self.lift(x)
+        width = x0.shape[1]
+        t_emb = get_timestep_embedding(width, t)  
+        t_emb = self.time_mlp(t_emb)
+        x_branch = x0
+        for blk in self.blocks:
+            x_branch = blk(x_branch, t_emb)
+        return self.proj(x_branch)
     
     def cal_loss(self, image: torch.Tensor, x0: torch.Tensor) -> torch.Tensor:
         return self.Diffusion.cal_loss(x0, image)
