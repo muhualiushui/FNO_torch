@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-
+from FNO_torch.helper.Func import DiceCELoss
 
 def _get_gaussian_kernel(kernel_size: int, sigma: float, channels: int) -> torch.Tensor:
     # Create a 2D Gaussian kernel repeated for each channel
@@ -38,7 +38,6 @@ class UncertainSpatialAttention(nn.Module):
         attn = torch.sigmoid(self.conv1x1(relaxed))  # [B, 1, H, W]
         # Apply attention to features
         return feat * attn + feat
-
 
 class ConditionModel(nn.Module):
     """
@@ -96,35 +95,8 @@ class ConditionModel(nn.Module):
         semantic = bott.flatten(2).mean(dim=2)  # [B, features*2]
         return anchor, semantic
 
-
-class DiceCELoss(nn.Module):
-    def __init__(self, ce_weight: float = 0.5, smooth: float = 1e-5):
-        super().__init__()
-        self.ce_weight = ce_weight
-        self.smooth = smooth
-        self.ce = nn.CrossEntropyLoss()
-
-    def dice_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        # pred: [B, C, H, W] logits; target: [B, C, H, W] one-hot
-        probs = torch.softmax(pred, dim=1)
-        intersection = torch.sum(probs * target, dim=(2, 3))
-        union = torch.sum(probs + target, dim=(2, 3))
-        dice_score = (2 * intersection + self.smooth) / (union + self.smooth)
-        return 1 - dice_score.mean()
-
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        """
-        pred: logits [B, C, H, W]
-        target: one-hot [B, C, H, W]
-        """
-        # CrossEntropyLoss expects class indices
-        target_indices = target.argmax(dim=1)  # [B, H, W]
-        ce_loss = self.ce(pred, target_indices)
-        dice = self.dice_loss(pred, target)
-        return dice + self.ce_weight * ce_loss
-
 class Diffusion(nn.Module):
-    def __init__(self, model, condition_model, timesteps):
+    def __init__(self, model, condition_model, timesteps, loss_ratio=0.8):
         super(Diffusion, self).__init__()
         self.model = model
         self.condition_model = condition_model
@@ -141,6 +113,7 @@ class Diffusion(nn.Module):
         self.register_buffer('alpha_prod', alpha_prod)
         self.loss_fn = nn.MSELoss()
         self.dice_loss = DiceCELoss(ce_weight=0.5, smooth=1e-5)
+        self.loss_ratio = loss_ratio
 
     def forward(self, x0, image):
         """
@@ -162,11 +135,11 @@ class Diffusion(nn.Module):
         x_t = self.usa(cond_anchor, x_t)
 
         # predict the noise
-        pred_noise = self.model(x_t, cond_sem_map, t)
+        pred_noise = self.model(x_t, t, cond_sem_map)
 
         pred_x0 = self.pred_x0(x_t, t, pred_noise)
 
-        return self.loss_fn(noise, pred_noise)*0.8 + self.dice_loss(pred_x0, x0)*0.2
+        return pred_noise, pred_x0, noise
 
     def noise(self, x0, t):
         """
@@ -194,7 +167,7 @@ class Diffusion(nn.Module):
         cond_sem_map = cond_semantic.view(x_t.size(0), -1, 1, 1).expand(x_t.size(0), -1, H, W)
 
         # predict noise at this step
-        pred_noise = self.model(x_t, cond_sem_map, t)
+        pred_noise = self.model(x_t, t, cond_sem_map)
         # gather parameters
         beta_t = self.betas[t].view(-1, 1, 1, 1)
         alpha_t = self.alphas[t].view(-1, 1, 1, 1)
@@ -231,3 +204,7 @@ class Diffusion(nn.Module):
             t_tensor = torch.full((batch_size,), t, device=device, dtype=torch.long)
             x = self.Denoise(x, t_tensor, cond_anchor, cond_semantic)
         return x
+    
+    def cal_loss(self, image: torch.Tensor, x0: torch.Tensor) -> torch.Tensor:
+        pred_noise, pred_x0, noise = self.forward(x0,image)
+        return self.loss_fn(noise, pred_noise)*self.loss_ratio + self.dice_loss(pred_x0, x0)*(1-self.loss_ratio)

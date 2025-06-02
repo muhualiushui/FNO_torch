@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-# from Brats.module.medseg import MedSegDiff
-from FNO_torch.Diffusion.diffusion_basic import Diffusion
-from FNO_torch.helper.SS_Former import NBPFilter
+import math
+from FNO_torch.Diffusion.diffusion_meg import Diffusion, ConditionModel
+from FNO_torch.helper.SS_Former import SS_Former
 from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, get_timestep_embedding
+
 
 
 class FNOnd(nn.Module):
@@ -22,20 +23,17 @@ class FNOnd(nn.Module):
                  out_c: int,
                  modes: List[int],
                  width: int,
-                 activation: Callable,
-                 n_blocks: int = 4,
-                 is_filter: bool = False):
+                 n_blocks: int = 4):
         super().__init__()
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
-        self.blocks = nn.ModuleList([
-            FNOBlockNd(width, width, modes, activation, is_filter)
+        self.assemblies = nn.ModuleList([
+            SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=32)
             for _ in range(n_blocks)
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)
         self.loss_fn = nn.MSELoss()
-        self.loss_fnV2 = DiceCELoss()
 
         # time embedding modules
         self.time_embed_dim = width
@@ -45,17 +43,17 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-    def forward(self, x, t, image):
+        self.cond_model = ConditionModel(in_c, out_c, width//2)
+
+    def forward(self,x_t, t, cond_unet_out):
         # exactly the same logic you had in FNOnd.forward
-        x = torch.cat([x, image], dim=1)
-        x0 = self.lift(x)
-        width = x0.shape[1]
-        t_emb = get_timestep_embedding(width, t)  
+        t_emb = get_timestep_embedding(self.time_embed_dim, t)  
         t_emb = self.time_mlp(t_emb)
-        x_branch = x0
-        for blk in self.blocks:
-            x_branch = blk(x_branch, t_emb)
-        return self.proj(x_branch)
+        diff_t, cond_t = self.lift(x_t), cond_unet_out
+        for assembly in self.assemblies:
+            cond_t = assembly(diff_t, cond_t, t_emb)
+        return self.proj(cond_t)
     
-    def cal_loss(self, image: torch.Tensor, x0: torch.Tensor) -> torch.Tensor:
-        return self.Diffusion.cal_loss(x0, image)
+    def cal_loss(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(x, y, torch.tensor([0.0], device=x.device))
+        return self.loss_fn(outputs, y)
