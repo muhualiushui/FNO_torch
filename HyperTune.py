@@ -21,7 +21,7 @@ def objective(model_cls, train_loader, test_loader, trial: optuna.Trial) -> floa
     config['weight_decay'] = trial.suggest_loguniform("weight_decay", 1e-6, 1e-2)
 
     # 2) Build base network and diffusion model
-    base_model = model_cls()
+    base_model = model_cls
     diffusion_model = nn.DataParallel(Diffusion(base_model, timesteps=config['timesteps'], loss_ratio=config['loss_ratio']))
     device = accelerator.device
     diffusion_model = diffusion_model.to(device)
