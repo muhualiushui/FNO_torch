@@ -4,11 +4,12 @@ from accelerate import Accelerator
 from FNO_torch.train import train_epoch, valid_epoch
 import optuna
 from FNO_torch.Diffusion.diffusion_basic import Diffusion
+from tqdm.auto import tqdm
 
 accelerator = Accelerator()
 
 # --------------------------- Optuna Hyperparameter Tuning ---------------------------
-def objective(model_cls, train_loader, test_loader, x_name, y_name, trial: optuna.Trial) -> float:
+def objective(model_cls, train_loader, test_loader, x_name, y_name, N_EPOCHS, trial: optuna.Trial) -> float:
     """
     Objective function for Optuna hyperparameter tuning.
     """
@@ -36,9 +37,8 @@ def objective(model_cls, train_loader, test_loader, x_name, y_name, trial: optun
     valid_loader = test_loader
 
     # 5) Train for a fixed number of epochs, reporting validation loss to Optuna
-    N_EPOCHS = 10
     best_val_loss = float("inf")
-    for epoch in range(N_EPOCHS):
+    for epoch in tqdm(range(N_EPOCHS), desc='Epoch', unit='epoch', leave=True, dynamic_ncols=True, position=0):
         train_loss = train_epoch(diffusion_model, train_loader, optimizer, device, x_name=x_name, y_name=y_name)
         val_loss = valid_epoch(diffusion_model, valid_loader, device, x_name=x_name, y_name=y_name)
         trial.report(val_loss, epoch)
