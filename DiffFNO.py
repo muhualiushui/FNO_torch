@@ -23,13 +23,14 @@ class FNOnd(nn.Module):
                  modes: List[int],
                  width: int,
                  activation: Callable,
-                 n_blocks: int = 4):
+                 n_blocks: int = 4,
+                 is_filter: bool = False):
         super().__init__()
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.blocks = nn.ModuleList([
-            FNOBlockNd(width, width, modes, activation)
+            FNOBlockNd(width, width, modes, activation, is_filter)
             for _ in range(n_blocks)
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)
