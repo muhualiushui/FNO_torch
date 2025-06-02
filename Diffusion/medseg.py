@@ -1055,6 +1055,9 @@ class MedSegDiff(Module):
 
         # img = normalize_to_neg_one_to_one(img)
         return self.p_losses(img, times, cond_img, *args, **kwargs)
+    
+    def cal_loss(self, image, label):
+        return self.forward(label, image)
 
 
 
@@ -1111,3 +1114,4 @@ def training_loss(model_out, target_onehot, epoch=None):
     if epoch is not None and epoch > 100:
         return ce_loss
     return ce_loss + dice_loss
+
