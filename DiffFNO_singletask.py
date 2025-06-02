@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 import math
 from FNO_torch.Diffusion.diffusion_meg import Diffusion, ConditionModel
 from FNO_torch.helper.SS_Former import SS_Former
-from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, FNOBlockNd_NBF, get_timestep_embedding
+from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, get_timestep_embedding
 
 
 class Denoiser(nn.Module):
