@@ -1,4 +1,5 @@
 import torch
+import warnings
 from torch import nn
 from FNO_torch.helper.Func import DiceCELoss
 
@@ -53,6 +54,15 @@ class Diffusion(nn.Module):
 
         if self.sanity_check:
             assert torch.all((t >= 0) & (t < self.timesteps)), "Sampled t out of valid range"
+            # Tracking checks in forward
+            if torch.isnan(pred_noise).any():
+                warnings.warn("NaN detected in predicted noise (pred_noise) during forward pass")
+            if torch.isnan(pred_x0).any():
+                warnings.warn("NaN detected in predicted x0 (pred_x0) during forward pass")
+            # Check for low variance (possible collapse) in pred_x0
+            std_x0 = pred_x0.detach().view(pred_x0.size(0), -1).std(dim=1)
+            if torch.any(std_x0 < 1e-5):
+                warnings.warn("Very low variance detected in pred_x0 (possible collapse) during forward pass")
 
         return pred_noise, pred_x0, noise
     
