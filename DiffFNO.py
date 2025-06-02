@@ -49,7 +49,7 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-    def forward(self, x, t, image):
+    def forward(self, x, t, image, cond=None):
         # exactly the same logic you had in FNOnd.forward
         x = torch.cat([x, image], dim=1)
         x0 = self.lift(x)
