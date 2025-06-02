@@ -4,7 +4,7 @@ from torch import nn
 from FNO_torch.helper.Func import DiceCELoss
 
 class Diffusion(nn.Module):
-    def __init__(self, model, timesteps, loss_ratio=0.8, sanity_check: bool = False):
+    def __init__(self, model, timesteps, loss_ratio=0.8, sanity_check: bool = True):
         super(Diffusion, self).__init__()
         self.model = model
         self.timesteps = timesteps
