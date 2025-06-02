@@ -50,7 +50,7 @@ class FNOBlockNd(nn.Module):
     """
     Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
     """
-    def __init__(self, in_c: int, out_c: int, modes: List[int], activation: Callable):
+    def __init__(self, in_c: int, out_c: int, modes: List[int], activation: Callable, is_filter: bool = False):
         super().__init__()
         self.in_c, self.out_c = in_c, out_c
         self.modes = modes
@@ -64,6 +64,9 @@ class FNOBlockNd(nn.Module):
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.bypass = ConvNd(in_c, out_c, kernel_size=1)
         self.act = activation
+        self.is_filter = is_filter
+        if is_filter:
+            self.nbp_filter = NBPFilter(in_c, in_c, out_c, modes[0] // 4)
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         # x: (B, C, *spatial)
@@ -84,48 +87,8 @@ class FNOBlockNd(nn.Module):
         spatial = x.shape[-self.ndim:]
         x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
         # combine spectral + bypass
-        if t_emb is not None:
+        if not self.is_filter and t_emb is not None:
             x_spec = x_spec + t_emb.unsqueeze(-1).unsqueeze(-1)
+        elif self.is_filter and t_emb is not None:
+            x_spec = self.nbp_filter(x_spec, t_emb)
         return self.act(x_spec + self.bypass(x))
-    
-class FNOBlockNd_NBF(nn.Module):
-    """
-    Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
-    """
-    def __init__(self, in_c: int, out_c: int, modes: List[int], activation: Callable):
-        super().__init__()
-        self.in_c, self.out_c = in_c, out_c
-        self.modes = modes
-        self.ndim = len(modes)
-        # initialize complex spectral weights
-        scale = 1.0 / (in_c * out_c)
-        w_shape = (in_c, out_c, *modes)
-        init = torch.randn(*w_shape, dtype=torch.cfloat)
-        self.weight = nn.Parameter(init * 2 * scale - scale)
-        # 1×1 convolution bypass
-        ConvNd = getattr(nn, f'Conv{self.ndim}d')
-        self.bypass = ConvNd(in_c, out_c, kernel_size=1)
-        self.act = activation
-        self.nbp_filter = NBPFilter(in_c, in_c, out_c, modes[0] // 4)
-
-    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, *spatial)
-        dims = tuple(range(-self.ndim, 0))
-        # forward FFT
-        x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
-        # trim to modes
-        slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
-        x_fft = x_fft[tuple(slices)]
-        # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('k') + i) for i in range(self.ndim)]
-        sub_in  = 'bi' + ''.join(letters)
-        sub_w   = 'io' + ''.join(letters)
-        sub_out = 'bo' + ''.join(letters)
-        eq = f"{sub_in}, {sub_w} -> {sub_out}"
-        out_fft = torch.einsum(eq, x_fft, self.weight)
-        # inverse FFT
-        spatial = x.shape[-self.ndim:]
-        x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
-        # combine spectral + bypass
-        x_filtered = self.nbp_filter(x_spec, t_emb)
-        return self.act(x_filtered + self.bypass(x))

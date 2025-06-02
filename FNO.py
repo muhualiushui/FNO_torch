@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.optim import Optimizer
-from torch.utils.data import DataLoader, TensorDataset
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
@@ -19,31 +17,29 @@ class FNOnd(nn.Module):
                  out_c: int,
                  modes: List[int],
                  width: int,
-                 activation: Callable,
-                 n_blocks: int = 4):
+                 n_blocks: int = 4,
+                 activation: Callable = nn.GELU(),
+                 is_filter: bool = False):
         super().__init__()
-        self.ndim = len(modes)
-        ConvNd = getattr(nn, f'Conv{self.ndim}d')
+        ConvNd = getattr(nn, f'Conv{len(modes)}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
-        self.assemblies = nn.ModuleList([
-            nn.ModuleList([
-                FNOBlockNd(width, width, modes, activation)
-                for _ in range(n_blocks)
-            ])
-            for _ in range(out_c)
+        # Shared blocks for all channels
+        self.blocks = nn.ModuleList([
+            FNOBlockNd(width, width, modes, activation, is_filter)
+            for _ in range(n_blocks)
         ])
-        self.proj = ConvNd(width, 1, kernel_size=1)
-        self.loss_fn = nn.BCEWithLogitsLoss()
+        self.proj = ConvNd(width, out_c, kernel_size=1)
+        # Loss functions remain the same
+        self.loss_fn = nn.MSELoss()
         self.loss_fnV2 = DiceCELoss()
-        self.out_c = out_c
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x0 = self.lift(x)
-        outputs = []
-        for assembly in self.assemblies:
-            x_branch = x0
-            for blk in assembly:
-                x_branch = blk(x_branch)
-            out = self.proj(x_branch)
-            outputs.append(out)
-        return torch.cat(outputs, dim=1)
+        x_branch = x0
+        for blk in self.blocks:
+            x_branch = blk(x_branch)
+        return self.proj(x_branch)
+
+    def cal_loss(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        outputs = self.forward(x)
+        return self.loss_fnV2(outputs, y)
