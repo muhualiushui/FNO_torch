@@ -1,37 +1,13 @@
 import torch
 from torch import nn
-
-class DiceCELoss(nn.Module):
-    def __init__(self, ce_weight: float = 0.5, smooth: float = 1e-5):
-        super().__init__()
-        self.ce_weight = ce_weight
-        self.smooth = smooth
-        self.ce = nn.CrossEntropyLoss()
-
-    def dice_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        # pred: [B, C, H, W] logits; target: [B, C, H, W] one-hot
-        probs = torch.softmax(pred, dim=1)
-        intersection = torch.sum(probs * target, dim=(2, 3))
-        union = torch.sum(probs + target, dim=(2, 3))
-        dice_score = (2 * intersection + self.smooth) / (union + self.smooth)
-        return 1 - dice_score.mean()
-
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        """
-        pred: logits [B, C, H, W]
-        target: one-hot [B, C, H, W]
-        """
-        # CrossEntropyLoss expects class indices
-        target_indices = target.argmax(dim=1)  # [B, H, W]
-        ce_loss = self.ce(pred, target_indices)
-        dice = self.dice_loss(pred, target)
-        return dice + self.ce_weight * ce_loss
+from FNO_torch.helper.Func import DiceCELoss
 
 class Diffusion(nn.Module):
-    def __init__(self, model, timesteps, loss_ratio=0.8):
+    def __init__(self, model, timesteps, loss_ratio=0.8, sanity_check: bool = False):
         super(Diffusion, self).__init__()
         self.model = model
         self.timesteps = timesteps
+        self.sanity_check = sanity_check
         # linear schedule for betas, alphas, and their cumulative product
         betas = torch.linspace(1e-4, 0.02, timesteps)
         alphas = 1.0 - betas
@@ -39,6 +15,20 @@ class Diffusion(nn.Module):
         self.register_buffer('betas', betas)
         self.register_buffer('alphas', alphas)
         self.register_buffer('alpha_prod', alpha_prod)
+        # Sanity check for noise schedule
+        if self.sanity_check:
+            # Print first, middle, and last beta and alpha_prod values
+            t0_beta = betas[0].item()
+            t_mid = timesteps // 2
+            t_mid_beta = betas[t_mid].item()
+            t_last_beta = betas[-1].item()
+            a0 = alpha_prod[0].item()
+            a_mid = alpha_prod[t_mid].item()
+            a_last = alpha_prod[-1].item()
+            print(f"[Diffusion Sanity] betas: t=0 -> {t0_beta:.6f}, t={t_mid} -> {t_mid_beta:.6f}, t={timesteps-1} -> {t_last_beta:.6f}")
+            print(f"[Diffusion Sanity] alpha_prod: t=0 -> {a0:.6f}, t={t_mid} -> {a_mid:.6f}, t={timesteps-1} -> {a_last:.6f}")
+            # Sanity assert: alpha_prod should decrease from 1.0 toward 0.0
+            assert a0 > a_mid > a_last or torch.isclose(torch.tensor(a0), torch.tensor(a_mid)), "alpha_prod values do not decrease properly"
         self.loss_fn = nn.MSELoss()
         self.dice_loss = DiceCELoss(ce_weight=0.5, smooth=1e-5)
         self.loss_ratio = loss_ratio
@@ -60,6 +50,9 @@ class Diffusion(nn.Module):
         pred_noise = self.model(x_t, t, image)
 
         pred_x0 = self.pred_x0(x_t, t, pred_noise)
+
+        if self.sanity_check:
+            assert torch.all((t >= 0) & (t < self.timesteps)), "Sampled t out of valid range"
 
         return pred_noise, pred_x0, noise
     
@@ -108,6 +101,8 @@ class Diffusion(nn.Module):
         image: conditioning image tensor of shape (B, C, H, W)
         Returns: predicted x0 tensor of shape (B, C, H, W)
         """
+        if self.sanity_check:
+            assert self.timesteps > 0, "timesteps must be positive for inference"
         # start from pure noise
         device = image.device
         batch_size, C, H, W = image.shape
