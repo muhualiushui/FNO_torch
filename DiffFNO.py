@@ -26,6 +26,10 @@ class FNOnd(nn.Module):
                  n_blocks: int = 4,
                  is_filter: bool = False):
         super().__init__()
+        self.input_img_channels = in_c/2
+        self.mask_channels = out_c
+        self.self_condition = None
+        self.image_size = 192
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
