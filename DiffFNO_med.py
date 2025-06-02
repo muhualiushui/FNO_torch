@@ -44,8 +44,6 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-        self.cond_model = ConditionModel(in_c, out_c, width//2)
-
     def forward(self,x_t, t, cond_unet_out):
         # exactly the same logic you had in FNOnd.forward
         t_emb = get_timestep_embedding(self.time_embed_dim, t)  

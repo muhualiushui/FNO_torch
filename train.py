@@ -4,6 +4,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
 from accelerate import Accelerator
+
 accelerator = Accelerator()
 
 def train_epoch(model: nn.Module,
