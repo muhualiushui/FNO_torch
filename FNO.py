@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from typing import Callable, List
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, FNOBlockNd_NBF, get_timestep_embedding
+from FNO_torch.helper.Func import DiceCELoss, FNOBlockNd, get_timestep_embedding
 
 
 class FNOnd(nn.Module):
