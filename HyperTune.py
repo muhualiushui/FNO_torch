@@ -8,7 +8,7 @@ from FNO_torch.Diffusion.diffusion_basic import Diffusion
 accelerator = Accelerator()
 
 # --------------------------- Optuna Hyperparameter Tuning ---------------------------
-def objective(model_cls, train_loader, test_loader, trial: optuna.Trial) -> float:
+def objective(model_cls, train_loader, test_loader, x_name, y_name, trial: optuna.Trial) -> float:
     """
     Objective function for Optuna hyperparameter tuning.
     """
@@ -40,8 +40,8 @@ def objective(model_cls, train_loader, test_loader, trial: optuna.Trial) -> floa
     N_EPOCHS = 10
     best_val_loss = float("inf")
     for epoch in range(N_EPOCHS):
-        train_loss = train_epoch(diffusion_model, train_loader, optimizer, device)
-        val_loss = valid_epoch(diffusion_model, valid_loader, device)
+        train_loss = train_epoch(diffusion_model, train_loader, optimizer, device, x_name=x_name, y_name=y_name)
+        val_loss = valid_epoch(diffusion_model, valid_loader, device, x_name=x_name, y_name=y_name)
         trial.report(val_loss, epoch)
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
