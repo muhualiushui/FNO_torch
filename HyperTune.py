@@ -16,13 +16,12 @@ def objective(model_cls, train_loader, test_loader, x_name, y_name, trial: optun
     config = {}
     config['learning_rate'] = trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     config['batch_size'] = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
-    config['timesteps'] = trial.suggest_int("timesteps", 50, 500, step=50)
-    config['loss_ratio'] = trial.suggest_uniform("loss_ratio", 0.1, 0.9)
+    config['timesteps'] = trial.suggest_int("timesteps", 300, 700, step=50)
     config['weight_decay'] = trial.suggest_loguniform("weight_decay", 1e-6, 1e-2)
 
     # 2) Build base network and diffusion model
     base_model = model_cls
-    diffusion_model = nn.DataParallel(Diffusion(base_model, timesteps=config['timesteps'], loss_ratio=config['loss_ratio']))
+    diffusion_model = nn.DataParallel(Diffusion(base_model, timesteps=config['timesteps'], loss_ratio=0.8))
     device = accelerator.device
     diffusion_model = diffusion_model.to(device)
 
