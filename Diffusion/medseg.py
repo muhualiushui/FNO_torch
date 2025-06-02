@@ -997,7 +997,7 @@ class MedSegDiff(Module):
                     x_self_cond = x0_pred.clamp(-1., 1.).detach()
 
         # --- Model prediction ---
-        model_out = self.model(x, t, cond, x_self_cond)
+        model_out = self.model(x, t, cond)
 
         if torch.isnan(model_out).any() or torch.isinf(model_out).any():
             print("‼️ model_out contains NaN BEFORE loss")
