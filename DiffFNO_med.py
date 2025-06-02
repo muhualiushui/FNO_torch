@@ -23,13 +23,14 @@ class FNOnd(nn.Module):
                  out_c: int,
                  modes: List[int],
                  width: int,
+                 heads: int = 1,
                  n_blocks: int = 4):
         super().__init__()
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
         self.assemblies = nn.ModuleList([
-            SS_Former(width, heads=1, dim_head=width, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=32)
+            SS_Former(width, heads, fno_modes=modes, nbf_num_blocks=3, nbf_hidden_channels=32)
             for _ in range(n_blocks)
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)
