@@ -522,31 +522,32 @@ class FNOBlockNd(nn.Module):
         self.apply_time_2 = TembFusion(out_c)
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, *spatial)
-        dims = tuple(range(-self.ndim, 0))
-        # forward FFT
-        if t_emb is not None:
-            x = self.apply_time_1(x, t_emb)
+        with torch.cuda.amp.autocast(enabled=False):
+            # x: (B, C, *spatial)
+            dims = tuple(range(-self.ndim, 0))
+            # forward FFT
+            if t_emb is not None:
+                x = self.apply_time_1(x, t_emb)
 
-        x = x.to(torch.float32)  # ensure complex type for FFT
-        x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
-        # trim to modes
-        slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
-        x_fft = x_fft[tuple(slices)]
-        # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('k') + i) for i in range(self.ndim)]
-        sub_in  = 'bi' + ''.join(letters)
-        sub_w   = 'io' + ''.join(letters)
-        sub_out = 'bo' + ''.join(letters)
-        eq = f"{sub_in}, {sub_w} -> {sub_out}"
-        out_fft = torch.einsum(eq, x_fft, self.weight)
-        # inverse FFT
-        spatial = x.shape[-self.ndim:]
-        x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
+            x = x.to(torch.float32)  # ensure complex type for FFT
+            x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
+            # trim to modes
+            slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
+            x_fft = x_fft[tuple(slices)]
+            # einsum: "b i a b..., i o a b... -> b o a b..."
+            letters = [chr(ord('k') + i) for i in range(self.ndim)]
+            sub_in  = 'bi' + ''.join(letters)
+            sub_w   = 'io' + ''.join(letters)
+            sub_out = 'bo' + ''.join(letters)
+            eq = f"{sub_in}, {sub_w} -> {sub_out}"
+            out_fft = torch.einsum(eq, x_fft, self.weight)
+            # inverse FFT
+            spatial = x.shape[-self.ndim:]
+            x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
 
-        if t_emb is not None:
-            x_spec = self.apply_time_2(x_spec, t_emb)
-        return self.act(x_spec + self.bypass(x))
+            if t_emb is not None:
+                x_spec = self.apply_time_2(x_spec, t_emb)
+            return self.act(x_spec + self.bypass(x))
 
 class FNOnd(nn.Module):
     """
@@ -589,8 +590,7 @@ class FNOnd(nn.Module):
         x_branch = x0
         for blk in self.blocks:
             x_branch = blk(x_branch, t_emb)
-        answer = self.proj(x_branch).to(torch.float16)
-        return answer
+        return self.proj(x_branch)
     
 
 
