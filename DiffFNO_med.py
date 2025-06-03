@@ -31,7 +31,7 @@ class FNOnd(nn.Module):
         self.mask_channels = out_c
         self.self_condition = None
         self.image_size = 192
-        
+
         self.ndim = len(modes)
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
@@ -50,7 +50,7 @@ class FNOnd(nn.Module):
             nn.Linear(self.time_embed_dim, self.time_embed_dim),
         )
 
-    def forward(self,x_t, t, cond_unet_out):
+    def forward(self,x_t, t, cond_unet_out, cond=None):
         # exactly the same logic you had in FNOnd.forward
         t_emb = get_timestep_embedding(self.time_embed_dim, t)  
         t_emb = self.time_mlp(t_emb)
