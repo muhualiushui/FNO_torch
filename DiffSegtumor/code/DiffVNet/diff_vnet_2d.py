@@ -647,8 +647,6 @@ class DiffVNet(nn.Module):
             # print("x",x.shape,"temb",temb.shape) # x torch.Size([32, 32, 128, 128]) temb torch.Size([32, 512])
             # x1, x2, x3, x4, x5, temb = self.denoise_model.encoder(x, temb)
             # return self.denoise_model.decoder(x1, x2, x3, x4, x5, temb)
-            print(x.shape)
-            print(temb.shape)
             return self.denoise_FNO(x, t_emb=temb)
 
         # elif pred_type == "D_theta_u":
