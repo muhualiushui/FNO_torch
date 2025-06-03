@@ -512,8 +512,11 @@ class FNOBlockNd(nn.Module):
         # initialize complex spectral weights
         scale = 1.0 / (in_c * out_c)
         w_shape = (in_c, out_c, *modes)
-        init = torch.randn(*w_shape, dtype=torch.cfloat)
-        self.weight = nn.Parameter(init * 2 * scale - scale)
+        # initialize real and imaginary parts separately as float32
+        init_real = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
+        init_imag = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
+        self.weight_real = nn.Parameter(init_real)
+        self.weight_imag = nn.Parameter(init_imag)
         # 1×1 convolution bypass
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.bypass = ConvNd(in_c, out_c, kernel_size=1)
@@ -523,6 +526,7 @@ class FNOBlockNd(nn.Module):
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
         orig_dtype = x.dtype
+        weight = torch.complex(self.weight_real, self.weight_imag)
         if t_emb is not None:
             t_emb = t_emb.to(torch.float32)  # ensure float type for time embedding
             x = self.apply_time_1(x, t_emb)
@@ -540,7 +544,7 @@ class FNOBlockNd(nn.Module):
         sub_w   = 'io' + ''.join(letters)
         sub_out = 'bo' + ''.join(letters)
         eq = f"{sub_in}, {sub_w} -> {sub_out}"
-        out_fft = torch.einsum(eq, x_fft, self.weight)
+        out_fft = torch.einsum(eq, x_fft, weight)
         # inverse FFT
         spatial = x.shape[-self.ndim:]
         x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
