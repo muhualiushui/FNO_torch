@@ -207,6 +207,7 @@ if __name__ == '__main__':
         pin_memory=False,
         drop_last=False
     )
+    print(next(iter(eval_loader))['image'].shape)
 
 
     logging.info(f'{len(train_loader)} itertations per epoch (labeled)')
