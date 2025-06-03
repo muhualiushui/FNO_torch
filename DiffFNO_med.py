@@ -54,7 +54,7 @@ class FNOnd(nn.Module):
         # exactly the same logic you had in FNOnd.forward
         t_emb = get_timestep_embedding(self.time_embed_dim, t)  
         t_emb = self.time_mlp(t_emb)
-        diff_t, cond_t = self.lift(x_t), cond_unet_out
+        diff_t, cond_t = self.lift(x_t), self.lift(cond_unet_out)
         for assembly in self.assemblies:
             cond_t = assembly(diff_t, cond_t, t_emb)
         return self.proj(cond_t)
