@@ -228,10 +228,11 @@ class TembFusion(nn.Module):
             # x.shape torch.Size([32, 64, 64, 64]) temb: torch.Size([32, 512])
             # self.temb_proj(nonlinearity(temb))[:, :, None, None, None].shape torch.Size([32, 64, 1, 1, 1])
             # x = x + self.temb_proj(nonlinearity(temb))[:, :, None, None, None]
-            x = x + self.temb_proj(nonlinearity(temb))[:, :, None, None]
-
+            proj = self.temb_proj(nonlinearity(temb))
+            proj = proj.to(x.dtype)
+            x = x + proj[:, :, None, None]
         else:
-            x =x
+            x = x
         return x
 
 
