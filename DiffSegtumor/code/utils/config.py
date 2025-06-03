@@ -15,7 +15,7 @@ class Config:
             self.num_workers = 2
         elif "brats_diff"in task:
             self.task = "brats_diff"
-            self.save_dir = '/DIFNO_Final/V1/result'
+            self.save_dir = '/media/ssd2/zhiwei/Brats/merged_nii/'
             self.modalities = ['flair', 't1', 't1ce', 't2', 'seg']  # Modalities to process
 
             self.patch_size = (192, 192) 
