@@ -330,7 +330,7 @@ class SS_Former(nn.Module):
         self.fatt2 = ATTFNOBlock(
             width=width,
             heads=heads,
-            dim_head=width//heads,
+            dim_head=int(width/heads),
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
             nbf_num_blocks=nbf_num_blocks
@@ -352,23 +352,28 @@ class SS_Former(nn.Module):
         """
         # downsample inputs by factor 'times'
         
-        orig_device = x_t.device
+        # orig_device = x_t.device
 
-        # first pass on device 1
-        device1 = torch.device('cuda:1')
-        cond1 = cond_unet_out.to(device1)
-        x1 = x_t.to(device1)
-        t_emb1 = t_emb.to(device1)
-        self.fatt1.to(device1)
-        former_output = self.fatt1(cond1, x1, t_emb1)
+        # # first pass on device 1
+        # device1 = torch.device('cuda:1')
+        # cond1 = cond_unet_out.to(device1)
+        # x1 = x_t.to(device1)
+        # t_emb1 = t_emb.to(device1)
+        # self.fatt1.to(device1)
+        # former_output = self.fatt1(cond1, x1, t_emb1)
 
-        # second pass on device 2
-        device2 = torch.device('cuda:2')
-        x2 = x_t.to(device2)
-        former2 = former_output.to(device2)
-        t_emb2 = t_emb.to(device2)
-        self.fatt2.to(device2)
-        later_output = self.fatt2(x2, former2, t_emb2)
-        later_output = later_output.to(orig_device)
+        # # second pass on device 2
+        # device2 = torch.device('cuda:2')
+        # x2 = x_t.to(device2)
+        # former2 = former_output.to(device2)
+        # t_emb2 = t_emb.to(device2)
+        # self.fatt2.to(device2)
+        # later_output = self.fatt2(x2, former2, t_emb2)
+        # later_output = later_output.to(orig_device)
+
+        # first pass: condition then diffusion
+        former_output = self.fatt1(cond_unet_out, x_t, t_emb)
+        # second pass: diffusion then former output
+        later_output = self.fatt2(x_t, former_output, t_emb)
 
         return later_output
