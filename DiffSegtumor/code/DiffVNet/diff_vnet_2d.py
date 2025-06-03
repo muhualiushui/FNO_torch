@@ -587,6 +587,7 @@ class FNOnd(nn.Module):
         # convert to float 32
         if x.dtype == torch.float16:
             x = x.to(torch.float32)
+            t_emb = t_emb.to(torch.float32) if t_emb is not None else None
         x0 = self.lift(x)
         x_branch = x0
         for blk in self.blocks:
