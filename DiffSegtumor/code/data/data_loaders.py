@@ -4,7 +4,7 @@ import torch
 import nibabel as nib
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-from Brats.util.config import Config
+from utils.config import Config
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
