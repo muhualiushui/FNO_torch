@@ -522,14 +522,14 @@ class FNOBlockNd(nn.Module):
         self.apply_time_2 = TembFusion(out_c)
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        x = x.to(torch.float32) # ensure float type for FFT
+        orig_dtype = x.dtype
         if t_emb is not None:
             t_emb = t_emb.to(torch.float32)  # ensure float type for time embedding
             x = self.apply_time_1(x, t_emb)
         # x: (B, C, *spatial)
         dims = tuple(range(-self.ndim, 0))
         # forward FFT
-        x = x.to(torch.float32)  # ensure complex type for FFT
+        x = x.to(torch.float32)
         x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
         # trim to modes
         slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
@@ -547,7 +547,8 @@ class FNOBlockNd(nn.Module):
 
         if t_emb is not None:
             x_spec = self.apply_time_2(x_spec, t_emb)
-        return self.act(x_spec + self.bypass(x)).to(torch.float16)  # ensure float type for further processing
+        out = self.act(x_spec + self.bypass(x))
+        return out.to(orig_dtype)
 
 class FNOnd(nn.Module):
     """
