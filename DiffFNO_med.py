@@ -27,7 +27,7 @@ class FNOnd(nn.Module):
                  n_blocks: int = 4):
         super().__init__()
 
-        self.input_img_channels = in_c/2
+        self.input_img_channels = in_c
         self.mask_channels = out_c
         self.self_condition = None
         self.image_size = 192
