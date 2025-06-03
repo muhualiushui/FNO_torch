@@ -207,6 +207,7 @@ if __name__ == '__main__':
         pin_memory=False,
         drop_last=False
     )
+    print(next(iter(train_loader))['image'].shape)
     print(next(iter(eval_loader))['image'].shape)
 
 
