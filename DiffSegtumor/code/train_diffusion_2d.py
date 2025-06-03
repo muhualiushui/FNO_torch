@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     eval_set = MergedNiiDataset(
         task = config.task,
-        split="eval",
+        split="test",
         selected_modalities=['flair', 't1', 't1ce', 't2', 'seg'],
         transform=transform2d,
         is_val=True,
