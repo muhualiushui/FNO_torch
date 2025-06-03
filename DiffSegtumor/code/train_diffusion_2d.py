@@ -133,7 +133,6 @@ class Difficulty:
 
 
 
-
 if __name__ == '__main__':
     import random
     SEED=args.seed
