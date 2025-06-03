@@ -528,6 +528,7 @@ class FNOBlockNd(nn.Module):
         if t_emb is not None:
             x = self.apply_time_1(x, t_emb)
 
+        x = x.to(torch.float32)  # ensure complex type for FFT
         x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
         # trim to modes
         slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
@@ -584,18 +585,12 @@ class FNOnd(nn.Module):
 
     def forward(self, x, t_emb=None):
         # exactly the same logic you had in FNOnd.forward
-        # convert to float 32
-        if x.dtype == torch.float16:
-            x = x.to(torch.float32)
-            t_emb = t_emb.to(torch.float32) if t_emb is not None else None
         x0 = self.lift(x)
         x_branch = x0
         for blk in self.blocks:
             x_branch = blk(x_branch, t_emb)
-        # convert back to float 16
-        if x_branch.dtype == torch.float32:
-            x_branch = x_branch.to(torch.float16)
-        return self.proj(x_branch)
+        answer = self.proj(x_branch).to(torch.float16)
+        return answer
     
 
 
