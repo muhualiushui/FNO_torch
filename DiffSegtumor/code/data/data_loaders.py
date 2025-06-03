@@ -47,8 +47,8 @@ class MergedNiiDataset(Dataset):
         """
         # Input: Stack selected modalities as channels
         input_modalities = [mod for mod in self.modalities if mod != 'seg']
-        image = np.stack([self.data[mod][:, :, index] for mod in input_modalities], axis=0)  # [C, H, W]
-        # image = self.data[input_modalities[0]][:, :, index]
+        # image = np.stack([self.data[mod][:, :, index] for mod in input_modalities], axis=0)  # [C, H, W]
+        image = self.data[input_modalities[0]][:, :, index]
         image = (image - np.min(image)) / (np.max(image) - np.min(image) + 1e-5)
 
         if 'seg' in self.modalities:
