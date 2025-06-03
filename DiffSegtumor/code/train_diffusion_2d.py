@@ -172,7 +172,7 @@ if __name__ == '__main__':
     train_set = MergedNiiDataset(
         task = config.task,
         split="train",
-        selected_modalities=[ 't2', 'seg'],
+        selected_modalities=['t2', 'seg'],
         transform=transform2d,
         is_val=False,
         num_cls = config.num_cls,
@@ -207,7 +207,7 @@ if __name__ == '__main__':
         pin_memory=False,
         drop_last=False
     )
-    print(next(iter(train_loader))['image'].shape)
+    # print(next(iter(train_loader))['image'].shape)
     print(next(iter(eval_loader))['image'].shape)
 
 
