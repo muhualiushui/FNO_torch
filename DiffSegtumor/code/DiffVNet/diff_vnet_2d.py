@@ -528,6 +528,8 @@ class FNOBlockNd(nn.Module):
         if t_emb is not None:
             x = self.apply_time_1(x, t_emb)
 
+        if x.dtype == torch.float16:
+            x = x.to(torch.float32)
         x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
         # trim to modes
         slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
