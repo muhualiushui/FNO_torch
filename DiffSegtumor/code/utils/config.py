@@ -9,7 +9,7 @@ class Config:
             self.patch_size = (192, 192) 
             self.num_cls = 4
             self.num_channels = 1
-            self.n_filters = 32
+            self.n_filters = 64
             self.early_stop_patience = 50
             self.batch_size = 32                
             self.num_workers = 2
