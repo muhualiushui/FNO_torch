@@ -172,7 +172,7 @@ if __name__ == '__main__':
     train_set = MergedNiiDataset(
         task = config.task,
         split="train",
-        selected_modalities=['flair', 't1', 't1ce', 't2', 'seg'],
+        selected_modalities=[ 't2', 'seg'],
         transform=transform2d,
         is_val=False,
         num_cls = config.num_cls,
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     eval_set = MergedNiiDataset(
         task = config.task,
         split="test",
-        selected_modalities=['flair', 't1', 't1ce', 't2', 'seg'],
+        selected_modalities=['t2', 'seg'],
         transform=transform2d,
         is_val=True,
         num_cls = config.num_cls,
