@@ -321,7 +321,7 @@ class SS_Former(nn.Module):
         self.fatt1 = ATTFNOBlock(
             width=width,
             heads=heads,
-            dim_head=int(width/heads),
+            dim_head=width//heads,
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
             nbf_num_blocks=nbf_num_blocks
@@ -330,7 +330,7 @@ class SS_Former(nn.Module):
         self.fatt2 = ATTFNOBlock(
             width=width,
             heads=heads,
-            dim_head=int(width/heads),
+            dim_head=width//heads,
             fno_modes=fno_modes,
             nbf_hidden_channels=nbf_hidden_channels,
             nbf_num_blocks=nbf_num_blocks
