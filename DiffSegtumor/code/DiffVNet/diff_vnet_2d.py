@@ -522,8 +522,9 @@ class FNOBlockNd(nn.Module):
         self.apply_time_2 = TembFusion(out_c)
 
     def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        x , t_emb = x.to(torch.float32), t_emb.to(torch.float32)  # ensure float type for FFT
+        x = x.to(torch.float32) # ensure float type for FFT
         if t_emb is not None:
+            t_emb = t_emb.to(torch.float32)  # ensure float type for time embedding
             x = self.apply_time_1(x, t_emb)
         # x: (B, C, *spatial)
         dims = tuple(range(-self.ndim, 0))
