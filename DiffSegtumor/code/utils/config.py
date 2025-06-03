@@ -3,7 +3,7 @@ class Config:
 
         if "brats_2d"in task:
             self.task = "brats_2d"
-            self.save_dir = '../../../../Brats/data_prep/merged_nii'
+            self.save_dir = '../../../Brats/data_prep/merged_nii'
             self.modalities = ['flair', 't1', 't1ce', 't2', 'seg']  # Modalities to process
 
             self.patch_size = (192, 192) 
