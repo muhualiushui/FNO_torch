@@ -9,9 +9,9 @@ class Config:
             self.patch_size = (192, 192) 
             self.num_cls = 4
             self.num_channels = 1
-            self.n_filters = 64
+            self.n_filters = 32
             self.early_stop_patience = 50
-            self.batch_size = 32                
+            self.batch_size = 128                
             self.num_workers = 2
         elif "brats_diff"in task:
             self.task = "brats_diff"
