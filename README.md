@@ -24,7 +24,7 @@ To set up your environment to use the Fourier Neural Operator, follow these step
 ### Using FNO
 Once the environment is set up, import the FNO module in your scripts or notebooks:
 ```python
-from fno import FNO1d, FNO2d
+from FNO_torch import FNOnd
 # then instantiate and train your model
 ```
 
