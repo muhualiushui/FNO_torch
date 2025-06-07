@@ -18,7 +18,8 @@ class FNOnd(nn.Module):
                  modes: List[int],
                  width: int,
                  n_blocks: int = 4,
-                 activation: Callable = nn.GELU()):
+                 activation: Callable = nn.GELU(),
+                 loss_fn: Callable = nn.MSELoss()):
         super().__init__()
         ConvNd = getattr(nn, f'Conv{len(modes)}d')
         self.lift = ConvNd(in_c, width, kernel_size=1)
@@ -29,8 +30,7 @@ class FNOnd(nn.Module):
         ])
         self.proj = ConvNd(width, out_c, kernel_size=1)
         # Loss functions remain the same
-        self.loss_fn = nn.MSELoss()
-        self.loss_fnV2 = DiceCELoss()
+        self.loss_fn = loss_fn
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x0 = self.lift(x)
@@ -41,4 +41,4 @@ class FNOnd(nn.Module):
 
     def cal_loss(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         outputs = self.forward(x)
-        return self.loss_fnV2(outputs, y)
+        return self.loss_fn(outputs, y)
