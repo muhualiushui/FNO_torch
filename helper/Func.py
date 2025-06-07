@@ -68,7 +68,7 @@ class FNOBlockNd(nn.Module):
         if is_filter:
             self.nbp_filter = NBPFilter(in_c, in_c, out_c, modes[0] // 4)
 
-    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t_emb = None) -> torch.Tensor:
         # x: (B, C, *spatial)
         dims = tuple(range(-self.ndim, 0))
         # forward FFT
