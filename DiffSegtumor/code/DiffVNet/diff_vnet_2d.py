@@ -441,21 +441,86 @@ class Encoder_denoise(nn.Module):
 
         return x1, x2, x3, x4, x5, temb
 
+from typing import Callable, List
+class FNOBlockNd(nn.Module):
+    """
+    Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
+    """
+    def __init__(self, in_c: int, out_c: int, normalization = 'none', modes = [16,16]):
+        super().__init__()
+        self.in_c, self.out_c = in_c, out_c
+        self.modes = modes
+        self.ndim = len(modes)
+        # initialize complex spectral weights
+        scale = 1.0 / (in_c * out_c)
+        w_shape = (in_c, out_c, *modes)
+        # initialize real and imaginary parts separately as float32
+        init_real = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
+        init_imag = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
+        self.weight_real = nn.Parameter(init_real)
+        self.weight_imag = nn.Parameter(init_imag)
+        # 1×1 convolution bypass
+        ConvNd = getattr(nn, f'Conv{self.ndim}d')
+        self.bypass = ConvNd(in_c, out_c, kernel_size=1)
+        self.act = nn.GELU()
+        self.apply_time = TembFusion(in_c)
+
+    def forward(self, x: torch.Tensor, t_emb = None) -> torch.Tensor:
+        orig_dtype = x.dtype
+        weight = torch.complex(self.weight_real, self.weight_imag)
+        # x: (B, C, *spatial)
+        dims = tuple(range(-self.ndim, 0))
+        # forward FFT
+        x = x.to(torch.float32)
+        x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
+        # trim to modes
+        slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
+        x_fft = x_fft[tuple(slices)]
+        # einsum: "b i a b..., i o a b... -> b o a b..."
+        letters = [chr(ord('k') + i) for i in range(self.ndim)]
+        sub_in  = 'bi' + ''.join(letters)
+        sub_w   = 'io' + ''.join(letters)
+        sub_out = 'bo' + ''.join(letters)
+        eq = f"{sub_in}, {sub_w} -> {sub_out}"
+        out_fft = torch.einsum(eq, x_fft, weight)
+        # inverse FFT
+        spatial = x.shape[-self.ndim:]
+        x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
+
+        out = self.act(x_spec + self.bypass(x))
+        if t_emb is not None:
+            out = self.apply_time(out, t_emb)
+        return out.to(orig_dtype)
+
 class Decoder_denoise(nn.Module):
     def __init__(self, n_classes=2, n_filters=16, normalization='none', has_dropout=False, dropout_rate=0.5):
         super(Decoder_denoise, self).__init__()
         self.has_dropout = has_dropout
 
-        self.block_five_up = UpsamplingDeconvBlockTemb(n_filters * 16, n_filters * 8, normalization=normalization)
+        # self.block_five_up = UpsamplingDeconvBlockTemb(n_filters * 16, n_filters * 8, normalization=normalization)
+
+        # self.block_six = ConvBlockTemb(3, n_filters * 8, n_filters * 8, normalization=normalization)
+        # self.block_six_up = UpsamplingDeconvBlockTemb(n_filters * 8, n_filters * 4, normalization=normalization)
+
+        # self.block_seven = ConvBlockTemb(3, n_filters * 4, n_filters * 4, normalization=normalization)
+        # self.block_seven_up = UpsamplingDeconvBlockTemb(n_filters * 4, n_filters * 2, normalization=normalization)
+
+        # self.block_eight = ConvBlockTemb(2, n_filters * 2, n_filters * 2, normalization=normalization)
+        # self.block_eight_up = UpsamplingDeconvBlockTemb(n_filters * 2, n_filters, normalization=normalization)
+
+        # self.block_nine = ConvBlockTemb(1, n_filters, n_filters, normalization=normalization)
+        # self.out_conv = nn.Conv2d(n_filters, n_classes, 1, padding=0)
+
+        self.block_five_up = FNOBlockNd(n_filters * 16, n_filters * 8, normalization=normalization)
 
         self.block_six = ConvBlockTemb(3, n_filters * 8, n_filters * 8, normalization=normalization)
-        self.block_six_up = UpsamplingDeconvBlockTemb(n_filters * 8, n_filters * 4, normalization=normalization)
+        self.block_six_up = FNOBlockNd(n_filters * 8, n_filters * 4, normalization=normalization)
 
         self.block_seven = ConvBlockTemb(3, n_filters * 4, n_filters * 4, normalization=normalization)
-        self.block_seven_up = UpsamplingDeconvBlockTemb(n_filters * 4, n_filters * 2, normalization=normalization)
+        self.block_seven_up = FNOBlockNd(n_filters * 4, n_filters * 2, normalization=normalization)
 
         self.block_eight = ConvBlockTemb(2, n_filters * 2, n_filters * 2, normalization=normalization)
-        self.block_eight_up = UpsamplingDeconvBlockTemb(n_filters * 2, n_filters, normalization=normalization)
+        self.block_eight_up = FNOBlockNd(n_filters * 2, n_filters, normalization=normalization)
 
         self.block_nine = ConvBlockTemb(1, n_filters, n_filters, normalization=normalization)
         self.out_conv = nn.Conv2d(n_filters, n_classes, 1, padding=0)
@@ -498,61 +563,6 @@ class DenoiseModel(nn.Module):
         x1, x2, x3, x4, x5, temb = self.encoder(x, temb)
         out = self.decoder(x1, x2, x3, x4, x5, temb)
         return out
-    
-from typing import Callable, List
-class FNOBlockNd(nn.Module):
-    """
-    Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
-    """
-    def __init__(self, in_c: int, out_c: int, modes: List[int], activation: Callable):
-        super().__init__()
-        self.in_c, self.out_c = in_c, out_c
-        self.modes = modes
-        self.ndim = len(modes)
-        # initialize complex spectral weights
-        scale = 1.0 / (in_c * out_c)
-        w_shape = (in_c, out_c, *modes)
-        # initialize real and imaginary parts separately as float32
-        init_real = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
-        init_imag = (torch.randn(*w_shape, dtype=torch.float32) * 2 * scale - scale)
-        self.weight_real = nn.Parameter(init_real)
-        self.weight_imag = nn.Parameter(init_imag)
-        # 1×1 convolution bypass
-        ConvNd = getattr(nn, f'Conv{self.ndim}d')
-        self.bypass = ConvNd(in_c, out_c, kernel_size=1)
-        self.act = activation
-        self.apply_time_1 = TembFusion(in_c)
-        self.apply_time_2 = TembFusion(out_c)
-
-    def forward(self, x: torch.Tensor, t_emb: torch.Tensor) -> torch.Tensor:
-        orig_dtype = x.dtype
-        weight = torch.complex(self.weight_real, self.weight_imag)
-        if t_emb is not None:
-            t_emb = t_emb.to(torch.float32)  # ensure float type for time embedding
-            x = self.apply_time_1(x, t_emb)
-        # x: (B, C, *spatial)
-        dims = tuple(range(-self.ndim, 0))
-        # forward FFT
-        x = x.to(torch.float32)
-        x_fft = torch.fft.rfftn(x, dim=dims, norm='ortho')
-        # trim to modes
-        slices = [slice(None), slice(None)] + [slice(0, m) for m in self.modes]
-        x_fft = x_fft[tuple(slices)]
-        # einsum: "b i a b..., i o a b... -> b o a b..."
-        letters = [chr(ord('k') + i) for i in range(self.ndim)]
-        sub_in  = 'bi' + ''.join(letters)
-        sub_w   = 'io' + ''.join(letters)
-        sub_out = 'bo' + ''.join(letters)
-        eq = f"{sub_in}, {sub_w} -> {sub_out}"
-        out_fft = torch.einsum(eq, x_fft, weight)
-        # inverse FFT
-        spatial = x.shape[-self.ndim:]
-        x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
-
-        if t_emb is not None:
-            x_spec = self.apply_time_2(x_spec, t_emb)
-        out = self.act(x_spec + self.bypass(x))
-        return out.to(orig_dtype)
 
 class FNOnd(nn.Module):
     """
@@ -645,9 +655,9 @@ class DiffVNet(nn.Module):
             # print("image",image.shape,"x",x.shape) # image torch.Size([32, 1, 128, 128]) x torch.Size([32, 4, 128, 128])
             x, temb = self.denoise_model.embedding_diffusion(x, t=step, image=image)
             # print("x",x.shape,"temb",temb.shape) # x torch.Size([32, 32, 128, 128]) temb torch.Size([32, 512])
-            # x1, x2, x3, x4, x5, temb = self.denoise_model.encoder(x, temb)
-            # return self.denoise_model.decoder(x1, x2, x3, x4, x5, temb)
-            return self.denoise_FNO(x, t_emb=temb)
+            x1, x2, x3, x4, x5, temb = self.denoise_model.encoder(x, temb)
+            return self.denoise_model.decoder(x1, x2, x3, x4, x5, temb)
+            # return self.denoise_FNO(x, t_emb=temb)
 
         # elif pred_type == "D_theta_u":
         #     x, temb = self.embedding(image)
@@ -656,9 +666,9 @@ class DiffVNet(nn.Module):
 
         elif pred_type == "D_psi_l":
             x, temb = self.embedding(image)
-            # x1, x2, x3, x4, x5, temb = self.denoise_model.encoder(x, temb)
-            # return self.decoder_psi(x1, x2, x3, x4, x5)
-            return self.decode_FNO(x)
+            x1, x2, x3, x4, x5, temb = self.denoise_model.encoder(x, temb)
+            return self.decoder_psi(x1, x2, x3, x4, x5)
+            # return self.decode_FNO(x)
 
         # elif pred_type == "ddim_sample":
         #     sample_out = self.sample_diffusion.ddim_sample_loop(self.denoise_model, (image.shape[0], self.n_classes) + image.shape[2:],
