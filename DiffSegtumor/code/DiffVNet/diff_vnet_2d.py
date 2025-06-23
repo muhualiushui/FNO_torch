@@ -407,7 +407,6 @@ class UpsamplingDeconvBlockTemb(nn.Module):
 
     def forward(self, x, temb):
         for layer in self.ops:
-            print(x.shape, temb.shape)
             if layer.__class__.__name__ == "TembFusion":
                 x = layer(x, temb)
             else:
@@ -499,7 +498,7 @@ class FNOBlockNd(nn.Module):
 
         out_fft = torch.einsum(eq, x_fft, weight)
         # inverse FFT
-        spatial = x.shape[-self.ndim:]
+        spatial = x.shape[-self.ndim:]*2
         x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
 
         out = self.act(x_spec + self.bypass(x))
@@ -544,7 +543,6 @@ class Decoder_denoise(nn.Module):
 
     def forward(self, x1, x2, x3, x4, x5, temb):
         x5_up = self.block_five_up(x5, temb)
-        print(x5_up.shape, x4.shape)
         x5_up = x5_up + x4
 
         x6 = self.block_six(x5_up, temb)
