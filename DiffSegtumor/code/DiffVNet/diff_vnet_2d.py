@@ -460,7 +460,7 @@ class FNOBlockNd(nn.Module):
     """
     Single FNO block: inline N‑dimensional spectral conv + 1×1 Conv bypass + activation.
     """
-    def __init__(self, in_c: int, out_c: int, normalization = 'none', modes = [16,16]):
+    def __init__(self, in_c: int, out_c: int, normalization = 'none', modes = [4,4]):
         super().__init__()
         self.in_c, self.out_c = in_c, out_c
         self.modes = modes
