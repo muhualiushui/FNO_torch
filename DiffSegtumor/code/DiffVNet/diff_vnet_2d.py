@@ -564,48 +564,48 @@ class DenoiseModel(nn.Module):
         out = self.decoder(x1, x2, x3, x4, x5, temb)
         return out
 
-class FNOnd(nn.Module):
-    """
-    N-dimensional FNO model.
-    modes: list specifying the number of Fourier modes per dimension.
-    """
-    def __init__(self,
-                 in_c: int,
-                 out_c: int,
-                 modes: List[int],
-                 width: int,
-                 activation: Callable,
-                 n_blocks: int = 4):
-        super().__init__()
-        self.input_img_channels = in_c/2
-        self.mask_channels = out_c
-        self.self_condition = None
-        self.image_size = 192
-        self.ndim = len(modes)
-        ConvNd = getattr(nn, f'Conv{self.ndim}d')
-        self.lift = ConvNd(in_c, width, kernel_size=1)
-        self.blocks = nn.ModuleList([
-            FNOBlockNd(width, width, modes, activation)
-            for _ in range(n_blocks)
-        ])
-        self.proj = ConvNd(width, out_c, kernel_size=1)
-        self.loss_fn = nn.MSELoss()
+# class FNOnd(nn.Module):
+#     """
+#     N-dimensional FNO model.
+#     modes: list specifying the number of Fourier modes per dimension.
+#     """
+#     def __init__(self,
+#                  in_c: int,
+#                  out_c: int,
+#                  modes: List[int],
+#                  width: int,
+#                  activation: Callable,
+#                  n_blocks: int = 4):
+#         super().__init__()
+#         self.input_img_channels = in_c/2
+#         self.mask_channels = out_c
+#         self.self_condition = None
+#         self.image_size = 192
+#         self.ndim = len(modes)
+#         ConvNd = getattr(nn, f'Conv{self.ndim}d')
+#         self.lift = ConvNd(in_c, width, kernel_size=1)
+#         self.blocks = nn.ModuleList([
+#             FNOBlockNd(width, width, modes, activation)
+#             for _ in range(n_blocks)
+#         ])
+#         self.proj = ConvNd(width, out_c, kernel_size=1)
+#         self.loss_fn = nn.MSELoss()
 
-        # time embedding modules
-        self.time_embed_dim = width
-        self.time_mlp = nn.Sequential(
-            nn.Linear(self.time_embed_dim, self.time_embed_dim),
-            nn.GELU(),
-            nn.Linear(self.time_embed_dim, self.time_embed_dim),
-        )
+#         # time embedding modules
+#         self.time_embed_dim = width
+#         self.time_mlp = nn.Sequential(
+#             nn.Linear(self.time_embed_dim, self.time_embed_dim),
+#             nn.GELU(),
+#             nn.Linear(self.time_embed_dim, self.time_embed_dim),
+#         )
 
-    def forward(self, x, t_emb=None):
-        # exactly the same logic you had in FNOnd.forward
-        x0 = self.lift(x)
-        x_branch = x0
-        for blk in self.blocks:
-            x_branch = blk(x_branch, t_emb)
-        return self.proj(x_branch)
+#     def forward(self, x, t_emb=None):
+#         # exactly the same logic you had in FNOnd.forward
+#         x0 = self.lift(x)
+#         x_branch = x0
+#         for blk in self.blocks:
+#             x_branch = blk(x_branch, t_emb)
+#         return self.proj(x_branch)
     
 
 
@@ -638,9 +638,9 @@ class DiffVNet(nn.Module):
                                                 )
         self.sampler = UniformSampler(self.time_steps)
 
-        self.denoise_FNO = FNOnd(in_c=n_filters, out_c=n_classes, modes=[16, 16], width=32, activation=nonlinearity, n_blocks=3)
+        # self.denoise_FNO = FNOnd(in_c=n_filters, out_c=n_classes, modes=[16, 16], width=32, activation=nonlinearity, n_blocks=3)
 
-        self.decode_FNO = FNOnd(in_c=n_filters, out_c=n_classes, modes=[16, 16], width=32, activation=nonlinearity, n_blocks=3)
+        # self.decode_FNO = FNOnd(in_c=n_filters, out_c=n_classes, modes=[16, 16], width=32, activation=nonlinearity, n_blocks=3)
 
 
     def forward(self, image=None, x=None, pred_type=None, step=None):
