@@ -512,7 +512,7 @@ class Decoder_denoise(nn.Module):
         super(Decoder_denoise, self).__init__()
         self.has_dropout = has_dropout
 
-        # self.block_five_up = UpsamplingDeconvBlockTemb(n_filters * 16, n_filters * 8, normalization=normalization)
+        self.block_five_up = UpsamplingDeconvBlockTemb(n_filters * 16, n_filters * 8, normalization=normalization)
 
         # self.block_six = ConvBlockTemb(3, n_filters * 8, n_filters * 8, normalization=normalization)
         # self.block_six_up = UpsamplingDeconvBlockTemb(n_filters * 8, n_filters * 4, normalization=normalization)
@@ -526,7 +526,7 @@ class Decoder_denoise(nn.Module):
         # self.block_nine = ConvBlockTemb(1, n_filters, n_filters, normalization=normalization)
         # self.out_conv = nn.Conv2d(n_filters, n_classes, 1, padding=0)
 
-        self.block_five_up = FNOBlockNd(n_filters * 16, n_filters * 8, normalization=normalization)
+        # self.block_five_up = FNOBlockNd(n_filters * 16, n_filters * 8, normalization=normalization)
 
         self.block_six = ConvBlockTemb(3, n_filters * 8, n_filters * 8, normalization=normalization)
         self.block_six_up = FNOBlockNd(n_filters * 8, n_filters * 4, normalization=normalization)
