@@ -140,16 +140,30 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.has_dropout = has_dropout
 
-        self.block_five_up = UpsamplingDeconvBlock(n_filters * 16, n_filters * 8, normalization=normalization)
+        # self.block_five_up = UpsamplingDeconvBlock(n_filters * 16, n_filters * 8, normalization=normalization)
+
+        # self.block_six = ConvBlock(3, n_filters * 8, n_filters * 8, normalization=normalization)
+        # self.block_six_up = UpsamplingDeconvBlock(n_filters * 8, n_filters * 4, normalization=normalization)
+
+        # self.block_seven = ConvBlock(3, n_filters * 4, n_filters * 4, normalization=normalization)
+        # self.block_seven_up = UpsamplingDeconvBlock(n_filters * 4, n_filters * 2, normalization=normalization)
+
+        # self.block_eight = ConvBlock(2, n_filters * 2, n_filters * 2, normalization=normalization)
+        # self.block_eight_up = UpsamplingDeconvBlock(n_filters * 2, n_filters, normalization=normalization)
+
+        # self.block_nine = ConvBlock(1, n_filters, n_filters, normalization=normalization)
+        # self.out_conv = nn.Conv2d(n_filters, n_classes, 1, padding=0)
+
+        self.block_five_up = FNOBlockNd(n_filters * 16, n_filters * 8, normalization=normalization)
 
         self.block_six = ConvBlock(3, n_filters * 8, n_filters * 8, normalization=normalization)
-        self.block_six_up = UpsamplingDeconvBlock(n_filters * 8, n_filters * 4, normalization=normalization)
+        self.block_six_up = FNOBlockNd(n_filters * 8, n_filters * 4, normalization=normalization)
 
         self.block_seven = ConvBlock(3, n_filters * 4, n_filters * 4, normalization=normalization)
-        self.block_seven_up = UpsamplingDeconvBlock(n_filters * 4, n_filters * 2, normalization=normalization)
+        self.block_seven_up = FNOBlockNd(n_filters * 4, n_filters * 2, normalization=normalization)
 
         self.block_eight = ConvBlock(2, n_filters * 2, n_filters * 2, normalization=normalization)
-        self.block_eight_up = UpsamplingDeconvBlock(n_filters * 2, n_filters, normalization=normalization)
+        self.block_eight_up = FNOBlockNd(n_filters * 2, n_filters, normalization=normalization)
 
         self.block_nine = ConvBlock(1, n_filters, n_filters, normalization=normalization)
         self.out_conv = nn.Conv2d(n_filters, n_classes, 1, padding=0)
@@ -617,7 +631,7 @@ class DiffVNet(nn.Module):
         self.time_steps = 1000
 
         self.embedding = TimeStepEmbedding(n_channels, n_filters, normalization=normalization)
-        self.decoder_theta = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
+        # self.decoder_theta = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
         self.decoder_psi = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
 
         self.denoise_model = DenoiseModel(n_classes, n_channels, n_filters, normalization, has_dropout,dropout_rate)
