@@ -631,7 +631,7 @@ class DiffVNet(nn.Module):
         self.time_steps = 1000
 
         self.embedding = TimeStepEmbedding(n_channels, n_filters, normalization=normalization)
-        # self.decoder_theta = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
+        self.decoder_theta = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
         self.decoder_psi = Decoder(n_classes, n_filters, normalization, has_dropout, dropout_rate)
 
         self.denoise_model = DenoiseModel(n_classes, n_channels, n_filters, normalization, has_dropout,dropout_rate)
