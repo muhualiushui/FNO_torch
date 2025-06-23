@@ -474,7 +474,7 @@ class FNOBlockNd(nn.Module):
         self.weight_imag = nn.Parameter(init_imag)
         # 1×1 convolution bypass
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
-        self.bypass = ConvNd(in_c, out_c, kernel_size=1)
+        self.bypass = ConvNd(in_c, out_c, kernel_size=1, stride=2, padding = 0)
         self.act = nn.GELU()
         self.apply_time = TembFusion(out_c)
 
