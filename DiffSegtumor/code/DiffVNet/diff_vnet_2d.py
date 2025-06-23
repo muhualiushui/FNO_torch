@@ -476,7 +476,7 @@ class FNOBlockNd(nn.Module):
         # ConvNd = getattr(nn, f'Conv{self.ndim}d')
         # self.bypass = ConvNd(in_c, out_c, kernel_size=1)
         ConvTransposeNd = getattr(nn, f'ConvTranspose{self.ndim}d')
-        self.bypass = ConvTransposeNd(in_c, out_c, kernel_size=1, stride=2, padding = 0)
+        self.bypass = ConvTransposeNd(in_c, out_c, stride=2, padding = 0)
 
         self.act = nn.GELU()
         self.apply_time = TembFusion(out_c)
