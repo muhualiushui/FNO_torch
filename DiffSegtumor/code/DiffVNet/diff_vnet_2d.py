@@ -477,7 +477,7 @@ class FNOBlockNd(nn.Module):
         ConvNd = getattr(nn, f'Conv{self.ndim}d')
         self.bypass = ConvNd(in_c, out_c, kernel_size=1)
         self.act = nn.GELU()
-        self.apply_time = TembFusion(in_c)
+        self.apply_time = TembFusion(out_c)
 
     def forward(self, x: torch.Tensor, t_emb = None) -> torch.Tensor:
         orig_dtype = x.dtype
