@@ -407,8 +407,8 @@ class UpsamplingDeconvBlockTemb(nn.Module):
 
     def forward(self, x, temb):
         for layer in self.ops:
+            print(x.shape, temb.shape)
             if layer.__class__.__name__ == "TembFusion":
-                print(x.shape, temb.shape)
                 x = layer(x, temb)
             else:
                 x = layer(x)
@@ -511,7 +511,7 @@ class Decoder_denoise(nn.Module):
     def __init__(self, n_classes=2, n_filters=16, normalization='none', has_dropout=False, dropout_rate=0.5):
         super(Decoder_denoise, self).__init__()
         self.has_dropout = has_dropout
-        
+
         self.block_five_up = UpsamplingDeconvBlockTemb(n_filters * 16, n_filters * 8, normalization=normalization)
 
         # self.block_six = ConvBlockTemb(3, n_filters * 8, n_filters * 8, normalization=normalization)
