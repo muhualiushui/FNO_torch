@@ -496,6 +496,7 @@ class FNOBlockNd(nn.Module):
         sub_w   = 'io' + ''.join(letters)
         sub_out = 'bo' + ''.join(letters)
         eq = f"{sub_in}, {sub_w} -> {sub_out}"
+        print(x.shape)
         out_fft = torch.einsum(eq, x_fft, weight)
         # inverse FFT
         spatial = x.shape[-self.ndim:]
