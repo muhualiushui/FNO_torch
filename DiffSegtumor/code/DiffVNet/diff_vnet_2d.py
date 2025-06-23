@@ -544,6 +544,7 @@ class Decoder_denoise(nn.Module):
 
     def forward(self, x1, x2, x3, x4, x5, temb):
         x5_up = self.block_five_up(x5, temb)
+        print(x5_up.shape, x4.shape)
         x5_up = x5_up + x4
 
         x6 = self.block_six(x5_up, temb)
