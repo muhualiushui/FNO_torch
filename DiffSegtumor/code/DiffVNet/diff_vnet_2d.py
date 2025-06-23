@@ -498,7 +498,7 @@ class FNOBlockNd(nn.Module):
 
         out_fft = torch.einsum(eq, x_fft, weight)
         # inverse FFT
-        spatial = x.shape[-self.ndim:]*2
+        spatial = tuple(d * 2 for d in x.shape[-self.ndim:])
         x_spec = torch.fft.irfftn(out_fft, s=spatial, dim=dims, norm='ortho')
 
         out = self.act(x_spec + self.bypass(x))
